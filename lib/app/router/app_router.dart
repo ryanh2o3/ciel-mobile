@@ -1,5 +1,5 @@
-import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/auth/presentation/login_screen.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_placeholder_screen.dart';
 import 'package:ciel_mobile/features/notifications/presentation/notifications_placeholder_screen.dart';
@@ -15,9 +15,11 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
-  ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-    refresh.value++;
-  });
+  ref
+    ..onDispose(refresh.dispose)
+    ..listen<AuthState>(authNotifierProvider, (previous, next) {
+      refresh.value++;
+    });
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -73,7 +75,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/notifications',
-                builder: (context, state) => const NotificationsPlaceholderScreen(),
+                builder: (context, state) =>
+                    const NotificationsPlaceholderScreen(),
               ),
             ],
           ),

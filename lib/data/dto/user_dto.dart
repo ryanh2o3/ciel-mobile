@@ -5,11 +5,11 @@ class UserDto {
   UserDto({
     required this.id,
     required this.handle,
-    this.email,
     required this.displayName,
+    required this.createdAt,
+    this.email,
     this.bio,
     this.avatarUrl,
-    required this.createdAt,
     this.followersCount,
     this.followingCount,
     this.postsCount,

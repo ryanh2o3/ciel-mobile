@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +16,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authNotifierProvider.notifier).restoreSession();
+      unawaited(ref.read(authNotifierProvider.notifier).restoreSession());
     });
   }
 

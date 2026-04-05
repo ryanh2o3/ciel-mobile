@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('CielApp boots without pending network timers', (WidgetTester tester) async {
+  testWidgets(
+    'CielApp boots without pending network timers',
+    (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -17,7 +19,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.byType(CielApp), findsOneWidget);
-  });
+    },
+  );
 }
 
 /// Skips [restoreSession] I/O — router sends unauthenticated users to /auth.

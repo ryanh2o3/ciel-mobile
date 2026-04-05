@@ -13,7 +13,6 @@ class CielApp extends ConsumerWidget {
       title: 'PicShare',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

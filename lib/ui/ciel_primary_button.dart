@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 /// Filled primary action — same layout on iOS/Android; uses Material 3 + tokens.
 class CielPrimaryButton extends StatelessWidget {
   const CielPrimaryButton({
-    super.key,
     required this.label,
+    super.key,
     this.onPressed,
     this.isLoading = false,
   });

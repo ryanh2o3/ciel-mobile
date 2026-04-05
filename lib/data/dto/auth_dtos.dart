@@ -1,5 +1,8 @@
 /// Login request body — snake_case keys for API.
-Map<String, dynamic> loginRequestJson({required String email, required String password}) {
+Map<String, dynamic> loginRequestJson({
+  required String email,
+  required String password,
+}) {
   return {'email': email, 'password': password};
 }
 

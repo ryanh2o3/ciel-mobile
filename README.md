@@ -77,6 +77,8 @@ Debug Android builds merge `usesCleartextTraffic=true` for HTTP local developmen
 
 ## Verify (analyze + import rules + tests)
 
+[`tool/verify.sh`](tool/verify.sh) runs `dart analyze --fatal-infos` using [very_good_analysis](https://pub.dev/packages/very_good_analysis), then `import_lint`, then `flutter test`.
+
 ```bash
 chmod +x tool/verify.sh
 ./tool/verify.sh
@@ -84,7 +86,7 @@ chmod +x tool/verify.sh
 
 ## Architecture notes
 
-- **State / DI**: [Riverpod](https://pub.dev/packages/flutter_riverpod) for UI; [get_it](https://pub.dev/packages/get_it) owns service construction (mirrors Swift `AppContainer`).
+- **State / DI**: [Riverpod](https://pub.dev/packages/flutter_riverpod) for UI state and service wiring (`app/providers/dependency_providers.dart` composition root).
 - **Navigation**: [go_router](https://pub.dev/packages/go_router) with auth redirect; main shell matches Swift tabs (Create opens `/create` overlay).
 - **HTTP**: [Dio](https://pub.dev/packages/dio) with refresh-on-401 + single retry, aligned with Swift `APIClient`.
 

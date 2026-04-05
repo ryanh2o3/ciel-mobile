@@ -1,15 +1,14 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and info. See https://dart.dev/tools#ides-and-editors
-
-include: package:flutter_lints/flutter.yaml
+# Very Good Analysis: strict Dart/Flutter defaults. Layer boundaries: import_lint below.
+include: package:very_good_analysis/analysis_options.yaml
 
 analyzer:
   plugins:
     - import_lint
 
+# Very Good Analysis targets packages; app UI/widgets rarely need dartdoc on every symbol.
 linter:
   rules:
-    avoid_relative_lib_imports: true
+    public_member_api_docs: false
 
 import_lint:
   severity: error
@@ -21,10 +20,6 @@ import_lint:
     domain_no_riverpod:
       target: "package:ciel_mobile/domain/**/*.dart"
       from: "package:flutter_riverpod/**"
-      except: []
-    domain_no_get_it:
-      target: "package:ciel_mobile/domain/**/*.dart"
-      from: "package:get_it/**"
       except: []
     domain_no_data:
       target: "package:ciel_mobile/domain/**/*.dart"
@@ -41,4 +36,16 @@ import_lint:
     data_no_features:
       target: "package:ciel_mobile/data/**/*.dart"
       from: "package:ciel_mobile/features/**"
+      except: []
+    features_no_data:
+      target: "package:ciel_mobile/features/**/*.dart"
+      from: "package:ciel_mobile/data/**"
+      except: []
+    ui_no_data:
+      target: "package:ciel_mobile/ui/**/*.dart"
+      from: "package:ciel_mobile/data/**"
+      except: []
+    ui_no_domain:
+      target: "package:ciel_mobile/ui/**/*.dart"
+      from: "package:ciel_mobile/domain/**"
       except: []

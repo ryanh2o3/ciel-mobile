@@ -11,7 +11,6 @@ Dio createAppDio({
   final base = BaseOptions(
     baseUrl: config.apiBaseUrl,
     contentType: Headers.jsonContentType,
-    responseType: ResponseType.json,
   );
 
   final refreshDio = Dio(base);

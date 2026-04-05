@@ -21,7 +21,8 @@ class AuthRequestInterceptor extends Interceptor {
   }
 }
 
-/// On 401: refresh once (singleflight), retry original request (Swift `APIClient`).
+/// On 401: refresh once (singleflight), retry original request
+/// (Swift APIClient).
 class AuthRefreshInterceptor extends Interceptor {
   AuthRefreshInterceptor({
     required AuthTokenManager tokenManager,
@@ -64,7 +65,10 @@ class AuthRefreshInterceptor extends Interceptor {
   }
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final status = err.response?.statusCode;
     if (status != 401) {
       return handler.next(err);
@@ -85,14 +89,16 @@ class AuthRefreshInterceptor extends Interceptor {
         await _tokens.clear();
         return handler.next(err);
       }
+      final extra = Map<String, dynamic>.from(err.requestOptions.extra)
+        ..['authRetryUsed'] = true;
       final req = err.requestOptions.copyWith(
         headers: Map<String, dynamic>.from(err.requestOptions.headers)
           ..['Authorization'] = 'Bearer $access',
-        extra: Map<String, dynamic>.from(err.requestOptions.extra)..['authRetryUsed'] = true,
+        extra: extra,
       );
       final response = await _mainDio.fetch<dynamic>(req);
       return handler.resolve(response);
-    } catch (_) {
+    } on Object catch (_) {
       await _tokens.clear();
       return handler.next(err);
     }

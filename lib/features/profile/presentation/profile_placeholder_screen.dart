@@ -22,7 +22,10 @@ class ProfilePlaceholderScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: CielSpacing.sm),
-              Text('@${user.handle}', style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                '@${user.handle}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: CielSpacing.xl),
             ],
             FilledButton.tonal(

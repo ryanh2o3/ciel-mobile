@@ -76,7 +76,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AppException _mapDio(DioException e) {
     final status = e.response?.statusCode;
     final body = e.response?.data;
-    String message = 'Request failed';
+    var message = 'Request failed';
     if (body is Map && body['message'] is String) {
       message = body['message'] as String;
     } else if (status == 401) {

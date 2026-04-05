@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/ui/ciel_primary_button.dart';
@@ -83,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 obscureText: true,
                 autofillHints: const [AutofillHints.password],
                 onSubmitted: (_) {
-                  if (!busy) _submit();
+                  if (!busy) unawaited(_submit());
                 },
                 decoration: const InputDecoration(
                   labelText: 'Password',

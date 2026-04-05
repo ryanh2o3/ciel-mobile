@@ -17,7 +17,7 @@ class AuthUseCase {
   Future<User?> restoreSession() async {
     try {
       return await _repository.fetchMe();
-    } catch (_) {
+    } on Object catch (_) {
       await _repository.clearLocalSession();
       return null;
     }

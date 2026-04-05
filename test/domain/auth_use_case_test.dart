@@ -20,7 +20,7 @@ void main() {
       id: '1',
       handle: 'demo',
       displayName: 'Demo',
-      createdAt: DateTime.utc(2024, 1, 1),
+      createdAt: DateTime.utc(2024),
     );
     when(() => repo.fetchMe()).thenAnswer((_) async => user);
 
@@ -31,14 +31,17 @@ void main() {
     verifyNever(() => repo.clearLocalSession());
   });
 
-  test('restoreSession returns null and clears session when fetchMe fails', () async {
-    when(() => repo.fetchMe()).thenThrow(Exception('network'));
-    when(() => repo.clearLocalSession()).thenAnswer((_) async {});
+  test(
+    'restoreSession returns null and clears session when fetchMe fails',
+    () async {
+      when(() => repo.fetchMe()).thenThrow(Exception('network'));
+      when(() => repo.clearLocalSession()).thenAnswer((_) async {});
 
-    final result = await useCase.restoreSession();
+      final result = await useCase.restoreSession();
 
-    expect(result, isNull);
-    verify(() => repo.fetchMe()).called(1);
-    verify(() => repo.clearLocalSession()).called(1);
-  });
+      expect(result, isNull);
+      verify(() => repo.fetchMe()).called(1);
+      verify(() => repo.clearLocalSession()).called(1);
+    },
+  );
 }

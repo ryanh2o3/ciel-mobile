@@ -12,7 +12,10 @@ class AuthTokenManager {
 
   Future<String?> get refreshToken => _store.readRefreshToken();
 
-  Future<void> setTokens({required String accessToken, required String refreshToken}) async {
+  Future<void> setTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
     _accessToken = accessToken;
     await _store.writeRefreshToken(refreshToken);
   }

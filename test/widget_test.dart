@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:ciel_mobile/app/ciel_app.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ciel_mobile/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('CielApp boots without pending network timers', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authNotifierProvider.overrideWith(_ImmediateUnauthNotifier.new),
+        ],
+        child: const CielApp(),
+      ),
+    );
     await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(CielApp), findsOneWidget);
   });
+}
+
+/// Skips [restoreSession] I/O — router sends unauthenticated users to /auth.
+class _ImmediateUnauthNotifier extends AuthNotifier {
+  @override
+  AuthState build() => const AuthState.unauthenticated();
+
+  @override
+  Future<void> restoreSession() async {}
 }

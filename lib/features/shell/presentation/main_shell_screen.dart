@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,6 +22,7 @@ abstract final class _NavBarSlot {
 }
 
 /// Swift `AppTabsView`: Home, Create (modal), Notifications, Profile.
+/// Uses [CupertinoTabBar] on iOS for native chrome; Material [NavigationBar] elsewhere.
 class MainShellScreen extends StatelessWidget {
   const MainShellScreen({required this.navigationShell, super.key});
 
@@ -41,45 +43,72 @@ class MainShellScreen extends StatelessWidget {
     return slotIndex - 1;
   }
 
+  void _onSlotSelected(BuildContext context, int slotIndex) {
+    if (slotIndex == _NavBarSlot.create) {
+      unawaited(context.push('/create'));
+      return;
+    }
+    navigationShell.goBranch(_branchFromNavBarSlot(slotIndex));
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedNavBarIndex =
         _navBarIndexFromBranch(navigationShell.currentIndex);
+    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
 
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedNavBarIndex,
-        onDestinationSelected: (slotIndex) {
-          if (slotIndex == _NavBarSlot.create) {
-            unawaited(context.push('/create'));
-            return;
-          }
-          navigationShell.goBranch(_branchFromNavBarSlot(slotIndex));
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_box_outlined),
-            selectedIcon: Icon(Icons.add_box),
-            label: 'Create',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_border),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Notifications',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: isIos
+          ? CupertinoTabBar(
+              currentIndex: selectedNavBarIndex,
+              onTap: (i) => _onSlotSelected(context, i),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.home),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.add_circled),
+                  label: 'Create',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.heart),
+                  label: 'Notifications',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.person),
+                  label: 'Profile',
+                ),
+              ],
+            )
+          : NavigationBar(
+              selectedIndex: selectedNavBarIndex,
+              onDestinationSelected: (slotIndex) =>
+                  _onSlotSelected(context, slotIndex),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.add_box_outlined),
+                  selectedIcon: Icon(Icons.add_box),
+                  label: 'Create',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.favorite_border),
+                  selectedIcon: Icon(Icons.favorite),
+                  label: 'Notifications',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 }

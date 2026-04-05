@@ -6,6 +6,7 @@ import 'package:ciel_mobile/ui/ciel_primary_button.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -103,6 +104,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 label: 'Sign in',
                 isLoading: busy,
                 onPressed: busy ? null : _submit,
+              ),
+              const SizedBox(height: CielSpacing.md),
+              TextButton(
+                onPressed: busy ? null : () => context.push('/signup'),
+                child: const Text('Create an account'),
               ),
             ],
           ),

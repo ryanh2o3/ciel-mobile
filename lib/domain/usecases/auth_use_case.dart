@@ -1,3 +1,4 @@
+import 'package:ciel_mobile/domain/entities/signup_request.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/domain/repositories/auth_repository.dart';
 
@@ -9,6 +10,15 @@ class AuthUseCase {
 
   Future<User> login({required String email, required String password}) {
     return _repository.login(email: email, password: password);
+  }
+
+  /// Signup then login to obtain tokens (matches Swift `AuthUseCase.signup`).
+  Future<User> signup(SignupRequest request) async {
+    await _repository.signup(request);
+    return _repository.login(
+      email: request.email,
+      password: request.password,
+    );
   }
 
   Future<void> logout() => _repository.logout();

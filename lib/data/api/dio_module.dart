@@ -26,3 +26,15 @@ Dio createAppDio({
   ]);
   return dio;
 }
+
+/// Presigned S3 PUT — full URL, custom headers, no auth interceptors.
+Dio createPresignedUploadDio() {
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(minutes: 2),
+      receiveTimeout: const Duration(minutes: 2),
+      sendTimeout: const Duration(minutes: 2),
+      validateStatus: (code) => code != null && code >= 200 && code < 400,
+    ),
+  );
+}

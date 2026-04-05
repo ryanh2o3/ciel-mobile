@@ -1,7 +1,10 @@
 import 'package:ciel_mobile/core/errors/app_exception.dart';
+import 'package:ciel_mobile/data/api/dio_error_mapper.dart';
 import 'package:ciel_mobile/data/auth/auth_token_manager.dart';
 import 'package:ciel_mobile/data/dto/auth_dtos.dart';
+import 'package:ciel_mobile/data/dto/request_bodies.dart';
 import 'package:ciel_mobile/data/dto/user_dto.dart';
+import 'package:ciel_mobile/domain/entities/signup_request.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/domain/repositories/auth_repository.dart';
 import 'package:dio/dio.dart';
@@ -28,6 +31,32 @@ class AuthRepositoryImpl implements AuthRepository {
         return UserDto.fromJson(data).toDomain();
       }
       throw AppException('Failed to load profile', cause: res.statusMessage);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  @override
+  Future<User> signup(SignupRequest request) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/users',
+        data: signupRequestJson(
+          handle: request.handle,
+          email: request.email,
+          displayName: request.displayName,
+          password: request.password,
+          inviteCode: request.inviteCode,
+          bio: request.bio,
+          avatarKey: request.avatarKey,
+        ),
+        options: Options(extra: {'skipAuthHeader': true}),
+      );
+      final data = res.data;
+      if ((res.statusCode == 200 || res.statusCode == 201) && data != null) {
+        return UserDto.fromJson(data).toDomain();
+      }
+      throw AppException('Signup failed', cause: res.statusMessage);
     } on DioException catch (e) {
       throw _mapDio(e);
     }
@@ -74,18 +103,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   AppException _mapDio(DioException e) {
-    final status = e.response?.statusCode;
-    final body = e.response?.data;
-    var message = 'Request failed';
-    if (body is Map && body['message'] is String) {
-      message = body['message'] as String;
-    } else if (status == 401) {
-      message = 'Invalid email or password';
-    } else if (status != null) {
-      message = 'Error $status';
-    } else if (e.message != null) {
-      message = e.message!;
+    if (e.response?.statusCode == 401) {
+      return AppException('Invalid email or password', cause: e);
     }
-    return AppException(message, cause: e);
+    return mapDioException(e);
   }
 }

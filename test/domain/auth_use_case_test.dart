@@ -1,3 +1,4 @@
+import 'package:ciel_mobile/domain/entities/signup_request.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/domain/repositories/auth_repository.dart';
 import 'package:ciel_mobile/domain/usecases/auth_use_case.dart';
@@ -44,4 +45,32 @@ void main() {
       verify(() => repo.clearLocalSession()).called(1);
     },
   );
+
+  test('signup registers then logs in and returns user', () async {
+    const request = SignupRequest(
+      handle: 'h',
+      email: 'e@e.com',
+      displayName: 'D',
+      password: 'secret',
+      inviteCode: 'abc',
+    );
+    final user = User(
+      id: '1',
+      handle: 'h',
+      displayName: 'D',
+      createdAt: DateTime.utc(2024),
+    );
+    when(() => repo.signup(request)).thenAnswer((_) async => user);
+    when(
+      () => repo.login(email: request.email, password: request.password),
+    ).thenAnswer((_) async => user);
+
+    final result = await useCase.signup(request);
+
+    expect(result, user);
+    verify(() => repo.signup(request)).called(1);
+    verify(
+      () => repo.login(email: request.email, password: request.password),
+    ).called(1);
+  });
 }

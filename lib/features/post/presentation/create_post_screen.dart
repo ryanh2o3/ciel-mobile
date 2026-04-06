@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/core/media/image_normalizer.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,7 +65,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         caption: _caption.text.trim().isEmpty ? null : _caption.text.trim(),
       );
       if (mounted) {
-        ref.invalidate(feedNotifierProvider);
+        final user = ref.read(authNotifierProvider).user;
+        unawaited(ref.read(feedNotifierProvider.notifier).refresh(user));
         context.pop();
       }
     } on Object catch (e) {

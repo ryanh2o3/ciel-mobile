@@ -35,7 +35,10 @@ class InviteRepositoryImpl implements InviteRepository {
       final data = res.data;
       if (res.statusCode == 200 && data != null) {
         return data
-            .map((e) => InviteCodeDto.fromJson(e as Map<String, dynamic>).toDomain())
+            .map(
+              (e) =>
+                  InviteCodeDto.fromJson(e as Map<String, dynamic>).toDomain(),
+            )
             .toList();
       }
       throw AppException('Failed to load invites', cause: res.statusMessage);
@@ -52,7 +55,10 @@ class InviteRepositoryImpl implements InviteRepository {
       if (res.statusCode == 200 && data != null) {
         return InviteStatsDto.fromJson(data).toDomain();
       }
-      throw AppException('Failed to load invite stats', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load invite stats',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -70,7 +76,9 @@ class InviteRepositoryImpl implements InviteRepository {
   @override
   Future<bool> validateInviteCode(String code) async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/invites/validate/$code');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/invites/validate/$code',
+      );
       final data = res.data;
       if (res.statusCode == 200 && data != null) {
         return InviteValidationResponseDto.fromJson(data).isValid;

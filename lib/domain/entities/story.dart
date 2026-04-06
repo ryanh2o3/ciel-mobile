@@ -98,6 +98,8 @@ class UserStoryGroup {
     if (stories.isEmpty) {
       return DateTime.fromMillisecondsSinceEpoch(0);
     }
-    return stories.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+    return stories
+        .map((s) => s.createdAt)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
   }
 }

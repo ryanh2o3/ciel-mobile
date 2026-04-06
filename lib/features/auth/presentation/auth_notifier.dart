@@ -68,12 +68,15 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _registerDeviceBestEffort() async {
     try {
       final fingerprint = await buildDeviceFingerprint();
-      await ref.read(safetyUseCaseProvider).registerDevice(fingerprint: fingerprint);
+      await ref
+          .read(safetyUseCaseProvider)
+          .registerDevice(fingerprint: fingerprint);
     } on Object catch (_) {
       // Non-blocking (matches Swift device registration).
     }
   }
 }
 
-final authNotifierProvider =
-    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authNotifierProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);

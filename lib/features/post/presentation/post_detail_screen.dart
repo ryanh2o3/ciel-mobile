@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/domain/entities/comment.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
@@ -30,7 +32,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -53,7 +55,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           mediaList.add(m);
         } on Object catch (_) {}
       }
-      final comments = await ref.read(postUseCaseProvider).fetchComments(
+      final comments = await ref
+          .read(postUseCaseProvider)
+          .fetchComments(
             postId: widget.postId,
             limit: 50,
           );
@@ -99,8 +103,14 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       builder: (c) => AlertDialog(
         title: const Text('Delete post?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -122,7 +132,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       return;
     }
     try {
-      final c = await ref.read(postUseCaseProvider).addComment(
+      final c = await ref
+          .read(postUseCaseProvider)
+          .addComment(
             postId: widget.postId,
             body: text,
           );

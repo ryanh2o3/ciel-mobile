@@ -17,7 +17,8 @@ abstract class StoryRepository {
 
   Future<Story> createStory({
     required String mediaId,
-    required String visibility, String? caption,
+    required String visibility,
+    String? caption,
   });
 
   Future<void> deleteStory(String id);

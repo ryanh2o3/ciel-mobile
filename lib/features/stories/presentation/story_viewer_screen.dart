@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
@@ -17,8 +19,9 @@ class StoryViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
-  late final PageController _page =
-      PageController(initialPage: extra.initialIndex);
+  late final PageController _page = PageController(
+    initialPage: extra.initialIndex,
+  );
   final Map<String, Media?> _media = {};
   int _index = 0;
 
@@ -32,8 +35,12 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
       if (extra.stories.isEmpty) {
         return;
       }
-      ref.read(feedNotifierProvider.notifier).markStorySeen(extra.stories[_index].id);
-      _prefetch(_index);
+      unawaited(
+        ref
+            .read(feedNotifierProvider.notifier)
+            .markStorySeen(extra.stories[_index].id),
+      );
+      unawaited(_prefetch(_index));
     });
   }
 
@@ -46,8 +53,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
       return;
     }
     try {
-      final m =
-          await ref.read(mediaUseCaseProvider).fetchMedia(story.mediaId);
+      final m = await ref.read(mediaUseCaseProvider).fetchMedia(story.mediaId);
       if (mounted) {
         setState(() => _media[story.mediaId] = m);
       }
@@ -84,8 +90,10 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
               onPageChanged: (i) {
                 setState(() => _index = i);
                 final s = stories[i];
-                ref.read(feedNotifierProvider.notifier).markStorySeen(s.id);
-                _prefetch(i);
+                unawaited(
+                  ref.read(feedNotifierProvider.notifier).markStorySeen(s.id),
+                );
+                unawaited(_prefetch(i));
               },
               itemBuilder: (context, i) {
                 final story = stories[i];
@@ -106,9 +114,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                         ),
                       ),
                       title: Text(
-                        story.userDisplayName ??
-                            story.userHandle ??
-                            'Story',
+                        story.userDisplayName ?? story.userHandle ?? 'Story',
                         style: const TextStyle(color: Colors.white),
                       ),
                       subtitle: Text(

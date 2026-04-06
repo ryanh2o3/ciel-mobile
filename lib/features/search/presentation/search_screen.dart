@@ -35,11 +35,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
     setState(() => _busy = true);
     try {
-      final users = await ref.read(searchUseCaseProvider).searchUsers(
+      final users = await ref
+          .read(searchUseCaseProvider)
+          .searchUsers(
             query: query,
             limit: 30,
           );
-      final posts = await ref.read(searchUseCaseProvider).searchPosts(
+      final posts = await ref
+          .read(searchUseCaseProvider)
+          .searchPosts(
             query: query,
             limit: 30,
           );

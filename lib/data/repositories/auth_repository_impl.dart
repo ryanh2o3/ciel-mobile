@@ -13,8 +13,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required Dio dio,
     required AuthTokenManager tokens,
-  })  : _dio = dio,
-        _tokens = tokens;
+  }) : _dio = dio,
+       _tokens = tokens;
 
   final Dio _dio;
   final AuthTokenManager _tokens;

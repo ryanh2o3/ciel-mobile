@@ -32,7 +32,10 @@ class SafetyRepositoryImpl implements SafetyRepository {
       final data = res.data;
       if (res.statusCode == 200 && data != null) {
         return data
-            .map((e) => DeviceInfoDto.fromJson(e as Map<String, dynamic>).toDomain())
+            .map(
+              (e) =>
+                  DeviceInfoDto.fromJson(e as Map<String, dynamic>).toDomain(),
+            )
             .toList();
       }
       throw AppException('Failed to load devices', cause: res.statusMessage);
@@ -49,7 +52,10 @@ class SafetyRepositoryImpl implements SafetyRepository {
       if (res.statusCode == 200 && data != null) {
         return TrustScoreDto.fromJson(data).toDomain();
       }
-      throw AppException('Failed to load trust score', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load trust score',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -63,7 +69,10 @@ class SafetyRepositoryImpl implements SafetyRepository {
       if (res.statusCode == 200 && data != null) {
         return RateLimitsDto.fromJson(data).toDomain();
       }
-      throw AppException('Failed to load rate limits', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load rate limits',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }

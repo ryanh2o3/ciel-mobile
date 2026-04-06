@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
@@ -24,14 +26,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authNotifierProvider).user;
-      ref.read(feedNotifierProvider.notifier).loadInitialIfNeeded(user);
+      unawaited(
+        ref.read(feedNotifierProvider.notifier).loadInitialIfNeeded(user),
+      );
     });
   }
 
   @override
   void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
+    _scroll
+      ..removeListener(_onScroll)
+      ..dispose();
     super.dispose();
   }
 
@@ -50,7 +55,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     if (state.posts.isEmpty) {
       return;
     }
-    ref.read(feedNotifierProvider.notifier).loadMoreIfNeeded(state.posts.last);
+    unawaited(
+      ref
+          .read(feedNotifierProvider.notifier)
+          .loadMoreIfNeeded(state.posts.last),
+    );
   }
 
   @override
@@ -60,7 +69,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     ref.listen(authNotifierProvider, (prev, next) {
       if (prev?.user?.id != next.user?.id) {
-        ref.read(feedNotifierProvider.notifier).refresh(next.user);
+        unawaited(ref.read(feedNotifierProvider.notifier).refresh(next.user));
       }
     });
 
@@ -75,7 +84,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(feedNotifierProvider.notifier).refresh(auth.user),
+        onRefresh: () =>
+            ref.read(feedNotifierProvider.notifier).refresh(auth.user),
         child: CustomScrollView(
           controller: _scroll,
           slivers: [
@@ -90,11 +100,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   groups: state.storyGroups,
                   onAddStory: () => context.push('/stories/create'),
                   onOpenStory: (stories, index) {
-                    context.push(
-                      '/stories/view',
-                      extra: StoryViewerExtra(
-                        stories: stories,
-                        initialIndex: index,
+                    unawaited(
+                      context.push(
+                        '/stories/view',
+                        extra: StoryViewerExtra(
+                          stories: stories,
+                          initialIndex: index,
+                        ),
                       ),
                     );
                   },
@@ -106,7 +118,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       state.error!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 ),
@@ -223,13 +237,17 @@ class _MyStoryChip extends StatelessWidget {
                   ),
                   child: CircleAvatar(
                     radius: 30,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
                     child: ClipOval(
                       child: hasStories
                           ? CielNetworkImage(imageUrl: latestThumbUrl)
                           : Icon(
                               Icons.add,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
                             ),
                     ),
                   ),
@@ -287,8 +305,9 @@ class _StoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        highlight ? Theme.of(context).colorScheme.primary : Colors.grey.shade400;
+    final borderColor = highlight
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey.shade400;
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: InkWell(
@@ -359,7 +378,9 @@ class _PostTile extends StatelessWidget {
                   ),
                 ),
               ),
-              title: Text(item.post.ownerDisplayName ?? item.post.ownerHandle ?? ''),
+              title: Text(
+                item.post.ownerDisplayName ?? item.post.ownerHandle ?? '',
+              ),
               subtitle: Text('@${item.post.ownerHandle ?? ''}'),
               onTap: onOpenProfile,
             ),

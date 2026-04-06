@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
@@ -37,7 +38,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final id = widget.userId ?? ref.read(authNotifierProvider).user?.id;
       if (id != null && id != _resolvedId) {
         _resolvedId = id;
-        _load(id);
+        unawaited(_load(id));
       }
     });
   }
@@ -56,7 +57,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           rel = await ref.read(userUseCaseProvider).fetchRelationship(id);
         } on Object catch (_) {}
       }
-      final page = await ref.read(userUseCaseProvider).fetchUserPosts(
+      final page = await ref
+          .read(userUseCaseProvider)
+          .fetchUserPosts(
             id: id,
             limit: 30,
           );
@@ -104,18 +107,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return;
     }
     try {
-      final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+      final normalized = await ImageNormalizer.normalizeExifOrientation(
+        File(file.path),
+      );
       final bytes = await normalized.readAsBytes();
-      final mediaId =
-          await ref.read(mediaUseCaseProvider).uploadImageAndWaitForMediaId(
-                data: bytes,
-              );
-      await ref.read(userUseCaseProvider).updateProfile(
+      final mediaId = await ref
+          .read(mediaUseCaseProvider)
+          .uploadImageAndWaitForMediaId(
+            data: bytes,
+          );
+      await ref
+          .read(userUseCaseProvider)
+          .updateProfile(
             id: me.id,
             avatarKey: mediaId,
           );
       await _load(me.id);
-      ref.read(authNotifierProvider.notifier).restoreSession();
+      unawaited(ref.read(authNotifierProvider.notifier).restoreSession());
     } on Object catch (_) {}
   }
 
@@ -174,13 +182,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('@${u.handle}', style: Theme.of(context).textTheme.titleMedium),
-                        Text('${u.postsCount} posts · ${u.followersCount} followers · ${u.followingCount} following'),
+                        Text(
+                          '@${u.handle}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          '${u.postsCount} posts · '
+                          '${u.followersCount} followers · '
+                          '${u.followingCount} following',
+                        ),
                         if (!isSelf && _rel != null) ...[
                           const SizedBox(height: 12),
                           FilledButton(
                             onPressed: _toggleFollow,
-                            child: Text(_rel!.isFollowing ? 'Unfollow' : 'Follow'),
+                            child: Text(
+                              _rel!.isFollowing ? 'Unfollow' : 'Follow',
+                            ),
                           ),
                         ],
                       ],
@@ -203,7 +220,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     post.primaryMedia?.mediumUrl ?? post.primaryMedia?.thumbUrl;
                 return GestureDetector(
                   onTap: () => context.push('/post/${post.id}'),
-                  child: CielNetworkImage(imageUrl: thumbUrl, fit: BoxFit.cover),
+                  child: CielNetworkImage(
+                    imageUrl: thumbUrl,
+                  ),
                 );
               },
               childCount: _posts.length,

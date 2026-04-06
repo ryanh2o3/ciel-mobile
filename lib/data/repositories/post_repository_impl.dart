@@ -16,7 +16,10 @@ class PostRepositoryImpl implements PostRepository {
   final Dio _dio;
 
   @override
-  Future<Post> createPost({required List<String> mediaIds, String? caption}) async {
+  Future<Post> createPost({
+    required List<String> mediaIds,
+    String? caption,
+  }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/posts',
@@ -120,7 +123,10 @@ class PostRepositoryImpl implements PostRepository {
   }
 
   @override
-  Future<Comment> addComment({required String postId, required String body}) async {
+  Future<Comment> addComment({
+    required String postId,
+    required String body,
+  }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/posts/$postId/comment',

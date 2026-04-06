@@ -55,7 +55,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       final post = ref.read(postUseCaseProvider);
       final ids = <String>[];
       for (final file in _images) {
-        final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+        final normalized = await ImageNormalizer.normalizeExifOrientation(
+          File(file.path),
+        );
         final bytes = await normalized.readAsBytes();
         final id = await media.uploadImageAndWaitForMediaId(data: bytes);
         ids.add(id);
@@ -96,7 +98,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null)
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           FilledButton.icon(
             onPressed: _busy ? null : _pick,
             icon: const Icon(Icons.photo_library_outlined),
@@ -111,7 +116,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   .map(
                     (f) => Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: Image.file(File(f.path), width: 120, fit: BoxFit.cover),
+                      child: Image.file(
+                        File(f.path),
+                        width: 120,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   )
                   .toList(),

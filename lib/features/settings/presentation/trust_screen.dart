@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/domain/entities/trust_score.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +21,7 @@ class _TrustScreenState extends ConsumerState<TrustScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -65,15 +67,25 @@ class _TrustScreenState extends ConsumerState<TrustScreen> {
           children: [
             if (_error != null) Text(_error!),
             if (s != null) ...[
-              Text('Level: ${s.trustLevelName}', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Level: ${s.trustLevelName}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               Text('Points: ${s.trustPoints}'),
               Text('Account age: ${s.accountAgeDays} days'),
               Text('Strikes: ${s.strikes}'),
-              if (s.isBanned) const Text('Account restricted', style: TextStyle(color: Colors.red)),
+              if (s.isBanned)
+                const Text(
+                  'Account restricted',
+                  style: TextStyle(color: Colors.red),
+                ),
               const SizedBox(height: 24),
             ],
             if (l != null) ...[
-              Text('Rate limits (${l.trustLevel})', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Rate limits (${l.trustLevel})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               Text('Posts / hour: ${l.postsPerHour}, day: ${l.postsPerDay}'),
               Text('Remaining posts: ${l.remaining.posts}'),
               Text('Remaining likes: ${l.remaining.likes}'),

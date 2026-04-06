@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/domain/entities/app_notification.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +10,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -20,7 +23,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetch();
+    unawaited(_fetch());
   }
 
   Future<void> _fetch({bool refresh = false}) async {
@@ -36,7 +39,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
     });
     try {
-      final page = await ref.read(notificationsUseCaseProvider).fetchNotifications(
+      final page = await ref
+          .read(notificationsUseCaseProvider)
+          .fetchNotifications(
             limit: 30,
             cursor: refresh ? null : _cursor,
           );
@@ -61,7 +66,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
     final postId = n.payload['post_id']?.toString();
     if (postId != null && mounted) {
-      context.push('/post/$postId');
+      await context.push('/post/$postId');
     }
   }
 
@@ -88,7 +93,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     title: Text(n.notificationType),
                     subtitle: Text(n.payload.toString()),
                     trailing: n.readAt == null
-                        ? Icon(Icons.circle, size: 10, color: Theme.of(context).colorScheme.primary)
+                        ? Icon(
+                            Icons.circle,
+                            size: 10,
+                            color: Theme.of(context).colorScheme.primary,
+                          )
                         : null,
                     onTap: () => _open(n),
                   );

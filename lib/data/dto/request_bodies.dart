@@ -30,7 +30,8 @@ Map<String, dynamic> createCommentRequestJson({required String body}) {
 
 Map<String, dynamic> createStoryRequestJson({
   required String mediaId,
-  required String visibility, String? caption,
+  required String visibility,
+  String? caption,
 }) {
   return {
     'media_id': mediaId,

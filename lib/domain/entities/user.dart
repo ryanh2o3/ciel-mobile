@@ -44,15 +44,15 @@ class User {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        handle,
-        email,
-        displayName,
-        bio,
-        avatarUrl,
-        createdAt,
-        followersCount,
-        followingCount,
-        postsCount,
-      );
+    id,
+    handle,
+    email,
+    displayName,
+    bio,
+    avatarUrl,
+    createdAt,
+    followersCount,
+    followingCount,
+    postsCount,
+  );
 }

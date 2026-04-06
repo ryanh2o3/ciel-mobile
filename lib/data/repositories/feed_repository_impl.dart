@@ -13,7 +13,10 @@ class FeedRepositoryImpl implements FeedRepository {
   final Dio _dio;
 
   @override
-  Future<PaginatedResult<Post>> fetchFeed({required int limit, String? cursor}) async {
+  Future<PaginatedResult<Post>> fetchFeed({
+    required int limit,
+    String? cursor,
+  }) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         '/feed',

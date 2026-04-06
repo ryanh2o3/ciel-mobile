@@ -183,12 +183,17 @@ class UserRepositoryImpl implements UserRepository {
   @override
   Future<Relationship> fetchRelationship(String id) async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/users/$id/relationship');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/users/$id/relationship',
+      );
       final data = res.data;
       if (res.statusCode == 200 && data != null) {
         return RelationshipDto.fromJson(data).toDomain();
       }
-      throw AppException('Failed to load relationship', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load relationship',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }

@@ -10,8 +10,8 @@ class MediaRepositoryImpl implements MediaRepository {
   MediaRepositoryImpl({
     required Dio apiDio,
     required Dio presignedUploadDio,
-  })  : _api = apiDio,
-        _upload = presignedUploadDio;
+  }) : _api = apiDio,
+       _upload = presignedUploadDio;
 
   final Dio _api;
   final Dio _upload;
@@ -91,7 +91,10 @@ class MediaRepositoryImpl implements MediaRepository {
           processedMediaId: dto.processedMediaId,
         );
       }
-      throw AppException('Failed to get upload status', cause: res.statusMessage);
+      throw AppException(
+        'Failed to get upload status',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }

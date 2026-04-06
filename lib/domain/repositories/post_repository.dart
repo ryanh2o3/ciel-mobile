@@ -30,5 +30,8 @@ abstract class PostRepository {
     String? cursor,
   });
 
-  Future<void> deleteComment({required String postId, required String commentId});
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  });
 }

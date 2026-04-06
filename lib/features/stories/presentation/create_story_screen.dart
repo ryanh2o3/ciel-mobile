@@ -47,9 +47,13 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
       _error = null;
     });
     try {
-      final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+      final normalized = await ImageNormalizer.normalizeExifOrientation(
+        File(file.path),
+      );
       final bytes = await normalized.readAsBytes();
-      await ref.read(storyUseCaseProvider).createStoryFromImage(
+      await ref
+          .read(storyUseCaseProvider)
+          .createStoryFromImage(
             imageBytes: bytes,
             caption: _caption.text.trim().isEmpty ? null : _caption.text.trim(),
             visibility: _vis,
@@ -85,7 +89,10 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null)
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           FilledButton.icon(
             onPressed: _busy ? null : _pick,
             icon: const Icon(Icons.photo_outlined),
@@ -110,7 +117,10 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
             initialValue: _vis,
             decoration: const InputDecoration(labelText: 'Visibility'),
             items: const [
-              DropdownMenuItem(value: StoryVisibility.public, child: Text('Public')),
+              DropdownMenuItem(
+                value: StoryVisibility.public,
+                child: Text('Public'),
+              ),
               DropdownMenuItem(
                 value: StoryVisibility.friendsOnly,
                 child: Text('Friends only'),

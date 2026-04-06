@@ -18,7 +18,7 @@ const _seenStoryIdsKey = 'seen_story_ids';
 
 class FeedNotifier extends Notifier<FeedState> {
   @override
-  FeedState build() => FeedState.initial();
+  FeedState build() => const FeedState.initial();
 
   FeedUseCase get _feed => ref.read(feedUseCaseProvider);
   StoryUseCase get _stories => ref.read(storyUseCaseProvider);
@@ -113,8 +113,9 @@ class FeedNotifier extends Notifier<FeedState> {
     try {
       final page = await _feed.fetchFeed(limit: 30, cursor: cursor);
       final existingIds = state.posts.map((p) => p.post.id).toSet();
-      final newPosts =
-          page.items.where((p) => !existingIds.contains(p.id)).toList();
+      final newPosts = page.items
+          .where((p) => !existingIds.contains(p.id))
+          .toList();
       final withMedia = await _loadMediaForPosts(newPosts);
       state = state.copyWith(
         posts: [...state.posts, ...withMedia],
@@ -183,5 +184,6 @@ class FeedNotifier extends Notifier<FeedState> {
   }
 }
 
-final feedNotifierProvider =
-    NotifierProvider<FeedNotifier, FeedState>(FeedNotifier.new);
+final feedNotifierProvider = NotifierProvider<FeedNotifier, FeedState>(
+  FeedNotifier.new,
+);

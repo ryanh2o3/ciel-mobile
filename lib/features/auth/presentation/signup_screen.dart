@@ -65,7 +65,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() => _error = 'Validate your invite code first');
       return;
     }
-    final err = await ref.read(authNotifierProvider.notifier).signup(
+    final err = await ref
+        .read(authNotifierProvider.notifier)
+        .signup(
           SignupRequest(
             handle: _handle.text.trim(),
             email: _email.text.trim(),
@@ -93,7 +95,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           if (_error != null)
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           TextField(
             controller: _invite,
             decoration: const InputDecoration(labelText: 'Invite code'),
@@ -110,7 +115,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       )
                     : const Text('Validate code'),
               ),
-              if (_inviteOk) const Icon(Icons.check_circle, color: Colors.green),
+              if (_inviteOk)
+                const Icon(Icons.check_circle, color: Colors.green),
             ],
           ),
           TextField(

@@ -20,7 +20,7 @@ class AuthState {
   const AuthState.loading() : this(status: AuthStatus.loading, user: null);
 
   const AuthState.unauthenticated()
-      : this(status: AuthStatus.unauthenticated, user: null);
+    : this(status: AuthStatus.unauthenticated, user: null);
 
   final AuthStatus status;
   final User? user;

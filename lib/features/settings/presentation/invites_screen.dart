@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/domain/entities/invite.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +21,7 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -68,7 +70,9 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
       await _load();
     } on Object catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -100,7 +104,10 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
               Text('Remaining: ${s.remainingInvites}'),
               const SizedBox(height: 24),
             ],
-            const Text('Your codes', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Your codes',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             ..._codes.map(
               (c) => ListTile(
                 title: Text(c.code),
@@ -112,12 +119,15 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
                         icon: const Icon(Icons.block),
                         onPressed: () async {
                           try {
-                            await ref.read(inviteUseCaseProvider).revokeInvite(c.code);
+                            await ref
+                                .read(inviteUseCaseProvider)
+                                .revokeInvite(c.code);
                             await _load();
                           } on Object catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text('$e')));
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('$e')));
                             }
                           }
                         },

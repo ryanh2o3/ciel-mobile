@@ -35,7 +35,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = 'Enter email and password');
       return;
     }
-    final message = await ref.read(authNotifierProvider.notifier).login(
+    final message = await ref
+        .read(authNotifierProvider.notifier)
+        .login(
           email: email,
           password: password,
         );
@@ -60,15 +62,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 'PicShare',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: CielSpacing.sm),
               Text(
                 'Sign in to continue',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: CielSpacing.xl),
               TextField(

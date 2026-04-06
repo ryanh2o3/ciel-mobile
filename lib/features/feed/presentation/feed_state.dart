@@ -14,6 +14,15 @@ class FeedState {
     this.nextCursor,
   });
 
+  const FeedState.initial()
+    : posts = const [],
+      storyGroups = const [],
+      myStoryGroup = null,
+      loading = false,
+      loadingMore = false,
+      error = null,
+      nextCursor = null;
+
   final List<PostWithMedia> posts;
   final List<UserStoryGroup> storyGroups;
   final UserStoryGroup? myStoryGroup;
@@ -21,14 +30,6 @@ class FeedState {
   final bool loadingMore;
   final String? error;
   final String? nextCursor;
-
-  static FeedState initial() => const FeedState(
-        posts: [],
-        storyGroups: [],
-        myStoryGroup: null,
-        loading: false,
-        loadingMore: false,
-      );
 
   FeedState copyWith({
     List<PostWithMedia>? posts,
@@ -45,13 +46,13 @@ class FeedState {
     return FeedState(
       posts: posts ?? this.posts,
       storyGroups: storyGroups ?? this.storyGroups,
-      myStoryGroup:
-          clearMyStoryGroup ? null : (myStoryGroup ?? this.myStoryGroup),
+      myStoryGroup: clearMyStoryGroup
+          ? null
+          : (myStoryGroup ?? this.myStoryGroup),
       loading: loading ?? this.loading,
       loadingMore: loadingMore ?? this.loadingMore,
       error: clearError ? null : (error ?? this.error),
-      nextCursor:
-          clearNextCursor ? null : (nextCursor ?? this.nextCursor),
+      nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
     );
   }
 }

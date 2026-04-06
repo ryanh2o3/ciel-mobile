@@ -22,7 +22,8 @@ abstract final class _NavBarSlot {
 }
 
 /// Swift `AppTabsView`: Home, Create (modal), Notifications, Profile.
-/// Uses [CupertinoTabBar] on iOS for native chrome; Material [NavigationBar] elsewhere.
+/// Uses [CupertinoTabBar] on iOS for native chrome; Material [NavigationBar]
+/// elsewhere.
 class MainShellScreen extends StatelessWidget {
   const MainShellScreen({required this.navigationShell, super.key});
 
@@ -53,8 +54,9 @@ class MainShellScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedNavBarIndex =
-        _navBarIndexFromBranch(navigationShell.currentIndex);
+    final selectedNavBarIndex = _navBarIndexFromBranch(
+      navigationShell.currentIndex,
+    );
     final isIos = Theme.of(context).platform == TargetPlatform.iOS;
 
     return Scaffold(

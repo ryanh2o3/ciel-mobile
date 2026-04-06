@@ -7,7 +7,10 @@ class FeedUseCase {
 
   final FeedRepository _repository;
 
-  Future<PaginatedResult<Post>> fetchFeed({required int limit, String? cursor}) {
+  Future<PaginatedResult<Post>> fetchFeed({
+    required int limit,
+    String? cursor,
+  }) {
     return _repository.fetchFeed(limit: limit, cursor: cursor);
   }
 

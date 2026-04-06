@@ -34,7 +34,10 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
           totalCount: page.totalCount,
         );
       }
-      throw AppException('Failed to load notifications', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load notifications',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }

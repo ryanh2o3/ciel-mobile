@@ -28,9 +28,9 @@ class AuthRefreshInterceptor extends Interceptor {
     required AuthTokenManager tokenManager,
     required Dio refreshDio,
     required Dio mainDio,
-  })  : _tokens = tokenManager,
-        _refreshDio = refreshDio,
-        _mainDio = mainDio;
+  }) : _tokens = tokenManager,
+       _refreshDio = refreshDio,
+       _mainDio = mainDio;
 
   final AuthTokenManager _tokens;
   final Dio _refreshDio;

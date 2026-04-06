@@ -64,7 +64,10 @@ class StoryRepositoryImpl implements StoryRepository {
           totalCount: page.totalCount,
         );
       }
-      throw AppException('Failed to load user stories', cause: res.statusMessage);
+      throw AppException(
+        'Failed to load user stories',
+        cause: res.statusMessage,
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -87,7 +90,8 @@ class StoryRepositoryImpl implements StoryRepository {
   @override
   Future<Story> createStory({
     required String mediaId,
-    required String visibility, String? caption,
+    required String visibility,
+    String? caption,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(

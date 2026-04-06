@@ -32,7 +32,8 @@ class StoryUseCase {
 
   Future<Story> createStoryFromImage({
     required List<int> imageBytes,
-    required StoryVisibility visibility, String? caption,
+    required StoryVisibility visibility,
+    String? caption,
   }) async {
     final mediaId = await _mediaUseCase.uploadImageAndWaitForMediaId(
       data: imageBytes,
@@ -111,8 +112,7 @@ class StoryUseCase {
         stories: sorted,
         hasUnseenStories: true,
       );
-    }).toList()
-      ..sort((a, b) => b.latestStoryDate.compareTo(a.latestStoryDate));
+    }).toList()..sort((a, b) => b.latestStoryDate.compareTo(a.latestStoryDate));
 
     return groups;
   }

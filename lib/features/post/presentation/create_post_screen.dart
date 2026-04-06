@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +53,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       final post = ref.read(postUseCaseProvider);
       final ids = <String>[];
       for (final file in _images) {
-        final bytes = await File(file.path).readAsBytes();
+        final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+        final bytes = await normalized.readAsBytes();
         final id = await media.uploadImageAndWaitForMediaId(data: bytes);
         ids.add(id);
       }

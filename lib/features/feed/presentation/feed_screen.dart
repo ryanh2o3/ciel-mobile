@@ -160,19 +160,11 @@ class _StoryStrip extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _StoryAddChip(onTap: onAddStory),
-          if (myGroup != null && myGroup!.stories.isNotEmpty)
-            Builder(
-              builder: (context) {
-                final mg = myGroup!;
-                return _StoryAvatar(
-                  label: 'You',
-                  imageUrl: mg.userAvatarUrl,
-                  highlight: mg.hasUnseenStories,
-                  onTap: () => onOpenStory(mg.stories, 0),
-                );
-              },
-            ),
+          _MyStoryChip(
+            myGroup: myGroup,
+            onAddStory: onAddStory,
+            onOpenStory: onOpenStory,
+          ),
           ...groups.map(
             (g) => _StoryAvatar(
               label: g.userHandle ?? g.userDisplayName ?? 'User',
@@ -187,32 +179,94 @@ class _StoryStrip extends StatelessWidget {
   }
 }
 
-class _StoryAddChip extends StatelessWidget {
-  const _StoryAddChip({required this.onTap});
+class _MyStoryChip extends StatelessWidget {
+  const _MyStoryChip({
+    required this.myGroup,
+    required this.onAddStory,
+    required this.onOpenStory,
+  });
 
-  final VoidCallback onTap;
+  final UserStoryGroup? myGroup;
+  final VoidCallback onAddStory;
+  final void Function(List<Story> stories, int initialIndex) onOpenStory;
 
   @override
   Widget build(BuildContext context) {
+    final group = myGroup;
+    final stories = group?.stories ?? const <Story>[];
+    final hasStories = stories.isNotEmpty;
+
+    final borderColor = hasStories && (group?.hasUnseenStories ?? false)
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey.shade400;
+
+    final latest = hasStories
+        ? stories.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+        : null;
+
+    final latestThumbUrl = latest?.media?.mediumUrl ?? latest?.media?.thumbUrl;
+
     return Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(40),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(
-                Icons.add,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              InkWell(
+                onTap: hasStories ? () => onOpenStory(stories, 0) : onAddStory,
+                borderRadius: BorderRadius.circular(40),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: borderColor, width: 2),
+                  ),
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    child: ClipOval(
+                      child: hasStories
+                          ? CielNetworkImage(imageUrl: latestThumbUrl)
+                          : Icon(
+                              Icons.add,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                    ),
+                  ),
+                ),
               ),
+              if (hasStories)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: InkWell(
+                    onTap: onAddStory,
+                    customBorder: const CircleBorder(),
+                    child: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Icon(
+                        Icons.add,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const SizedBox(
+            width: 72,
+            child: Text(
+              'Your story',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11),
             ),
-            const SizedBox(height: 4),
-            const Text('New', style: TextStyle(fontSize: 11)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

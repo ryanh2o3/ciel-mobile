@@ -31,9 +31,11 @@ class PostDto {
     this.ownerDisplayName,
     this.ownerAvatarUrl,
     this.caption,
+    this.primaryMedia,
   });
 
   factory PostDto.fromJson(Map<String, dynamic> json) {
+    final primaryMediaJson = json['primary_media'];
     return PostDto(
       id: json['id'] as String,
       ownerId: json['owner_id'] as String,
@@ -46,6 +48,9 @@ class PostDto {
       caption: json['caption'] as String?,
       visibility: json['visibility'] as String? ?? 'public',
       createdAt: parseApiDateTime(json['created_at'] as String),
+      primaryMedia: primaryMediaJson is Map<String, dynamic>
+          ? MediaDto.fromJson(primaryMediaJson).toDomain()
+          : null,
     );
   }
 
@@ -58,6 +63,7 @@ class PostDto {
   final String? caption;
   final String visibility;
   final DateTime createdAt;
+  final Media? primaryMedia;
 
   Post toDomain() {
     return Post(
@@ -70,6 +76,7 @@ class PostDto {
       caption: caption,
       visibility: _postVisibility(visibility),
       createdAt: createdAt,
+      primaryMedia: primaryMedia,
     );
   }
 }

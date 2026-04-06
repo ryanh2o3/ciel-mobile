@@ -1,4 +1,6 @@
 import 'package:ciel_mobile/data/api/json_parse.dart';
+import 'package:ciel_mobile/data/dto/models_dtos.dart';
+import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 
 StoryVisibility _storyVisibility(String raw) {
@@ -30,9 +32,11 @@ class StoryDto {
     this.userDisplayName,
     this.userAvatarUrl,
     this.caption,
+    this.media,
   });
 
   factory StoryDto.fromJson(Map<String, dynamic> json) {
+    final mediaJson = json['media'];
     return StoryDto(
       id: json['id'] as String,
       userId: json['user_id'] as String,
@@ -46,6 +50,9 @@ class StoryDto {
       visibility: json['visibility'] as String? ?? 'Public',
       viewCount: (json['view_count'] as num).toInt(),
       reactionCount: (json['reaction_count'] as num).toInt(),
+      media: mediaJson is Map<String, dynamic>
+          ? MediaDto.fromJson(mediaJson).toDomain()
+          : null,
     );
   }
 
@@ -57,6 +64,7 @@ class StoryDto {
       userDisplayName: userDisplayName,
       userAvatarUrl: userAvatarUrl,
       mediaId: mediaId,
+      media: media,
       caption: caption,
       createdAt: createdAt,
       expiresAt: expiresAt,
@@ -78,6 +86,7 @@ class StoryDto {
   final String visibility;
   final int viewCount;
   final int reactionCount;
+  final Media? media;
 }
 
 class StoryReactionDto {

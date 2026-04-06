@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/relationship.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
@@ -101,7 +104,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return;
     }
     try {
-      final bytes = await file.readAsBytes();
+      final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+      final bytes = await normalized.readAsBytes();
       final mediaId =
           await ref.read(mediaUseCaseProvider).uploadImageAndWaitForMediaId(
                 data: bytes,
@@ -195,12 +199,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final post = _posts[index];
+                final thumbUrl =
+                    post.primaryMedia?.mediumUrl ?? post.primaryMedia?.thumbUrl;
                 return GestureDetector(
                   onTap: () => context.push('/post/${post.id}'),
-                  child: ColoredBox(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.photo_outlined),
-                  ),
+                  child: CielNetworkImage(imageUrl: thumbUrl, fit: BoxFit.cover),
                 );
               },
               childCount: _posts.length,

@@ -1,3 +1,4 @@
+import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:meta/meta.dart';
 
 enum StoryVisibility {
@@ -21,6 +22,7 @@ class Story {
     this.userDisplayName,
     this.userAvatarUrl,
     this.caption,
+    this.media,
   });
 
   final String id;
@@ -29,6 +31,7 @@ class Story {
   final String? userDisplayName;
   final String? userAvatarUrl;
   final String mediaId;
+  final Media? media;
   final String? caption;
   final DateTime createdAt;
   final DateTime expiresAt;

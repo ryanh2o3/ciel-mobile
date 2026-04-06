@@ -1,3 +1,4 @@
+import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:meta/meta.dart';
 
 enum PostVisibility {
@@ -17,6 +18,7 @@ class Post {
     this.ownerDisplayName,
     this.ownerAvatarUrl,
     this.caption,
+    this.primaryMedia,
   });
 
   final String id;
@@ -28,6 +30,7 @@ class Post {
   final String? caption;
   final PostVisibility visibility;
   final DateTime createdAt;
+  final Media? primaryMedia;
 
   String? get primaryMediaId => mediaIds.isEmpty ? null : mediaIds.first;
 }

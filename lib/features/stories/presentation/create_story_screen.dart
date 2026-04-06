@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +47,8 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
       _error = null;
     });
     try {
-      final bytes = await File(file.path).readAsBytes();
+      final normalized = await ImageNormalizer.normalizeExifOrientation(File(file.path));
+      final bytes = await normalized.readAsBytes();
       await ref.read(storyUseCaseProvider).createStoryFromImage(
             imageBytes: bytes,
             caption: _caption.text.trim().isEmpty ? null : _caption.text.trim(),

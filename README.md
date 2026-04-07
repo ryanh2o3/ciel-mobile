@@ -1,6 +1,6 @@
 # ciel_mobile
 
-Flutter client for **PicShare / Ciel** (iOS + Android). Layered architecture: `app/` (shell, DI, router, theme), `core/`, `domain/`, `data/`, `features/`, `ui/`.
+Flutter client for **Ciel Social** (iOS + Android). Layered architecture: `app/` (shell, DI, router, theme), `core/`, `domain/`, `data/`, `features/`, `ui/`.
 
 ## Prerequisites
 

@@ -12,7 +12,7 @@ class CielApp extends ConsumerWidget {
     final router = ref.watch(goRouterProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
     return MaterialApp.router(
-      title: 'PicShare',
+      title: 'Ciel',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,

@@ -5,7 +5,7 @@ class SecureRefreshTokenStore {
   SecureRefreshTokenStore({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
 
-  static const _key = 'picshare_refresh_token';
+  static const _key = 'ciel_refresh_token';
 
   final FlutterSecureStorage _storage;
 

@@ -75,7 +75,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PicShare'),
+        title: const Text('Ciel'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),

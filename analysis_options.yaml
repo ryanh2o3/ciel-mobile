@@ -1,10 +1,6 @@
 # Very Good Analysis: strict Dart/Flutter defaults. Layer boundaries: import_lint below.
 include: package:very_good_analysis/analysis_options.yaml
 
-analyzer:
-  plugins:
-    - import_lint
-
 # Very Good Analysis targets packages; app UI/widgets rarely need dartdoc on every symbol.
 linter:
   rules:

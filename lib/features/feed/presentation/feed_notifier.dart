@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/app/providers/shared_preferences_provider.dart';
+import 'package:ciel_mobile/core/errors/app_failure_mapper.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
@@ -12,9 +13,11 @@ import 'package:ciel_mobile/domain/usecases/media_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/story_use_case.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const _seenStoryIdsKey = 'seen_story_ids';
+const _maxSeenStoryIds = 500;
 
 class FeedNotifier extends Notifier<FeedState> {
   @override
@@ -23,6 +26,9 @@ class FeedNotifier extends Notifier<FeedState> {
   FeedUseCase get _feed => ref.read(feedUseCaseProvider);
   StoryUseCase get _stories => ref.read(storyUseCaseProvider);
   MediaUseCase get _media => ref.read(mediaUseCaseProvider);
+
+  final Map<String, Media> _mediaCache = <String, Media>{};
+  final Map<String, Future<Media>> _mediaInFlight = <String, Future<Media>>{};
 
   Future<void> loadInitialIfNeeded(User? currentUser) async {
     if (state.loading || state.posts.isNotEmpty) {
@@ -46,14 +52,14 @@ class FeedNotifier extends Notifier<FeedState> {
     } on Object catch (e) {
       state = state.copyWith(
         loading: false,
-        error: e.toString(),
+        error: mapToFailure(e),
       );
     }
   }
 
   Future<void> _loadStories(User? currentUser) async {
     try {
-      final seen = await _readSeenIds();
+      final seen = await _readSeenIdsSet();
       final feedPage = await _stories.fetchStoriesFeed(limit: 50);
       var groups = _stories.groupStoriesByUser(feedPage.items);
       groups = _applySeen(groups, seen);
@@ -77,7 +83,9 @@ class FeedNotifier extends Notifier<FeedState> {
               hasUnseenStories: sorted.any((s) => !seen.contains(s.id)),
             );
           }
-        } on Object catch (_) {}
+        } on Object catch (e) {
+          _debugLog('load my stories failed', e);
+        }
       }
 
       var resolvedMy = myGroup;
@@ -98,7 +106,9 @@ class FeedNotifier extends Notifier<FeedState> {
         storyGroups: others,
         myStoryGroup: resolvedMy,
       );
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      _debugLog('load stories failed', e);
+    }
   }
 
   Future<void> loadMoreIfNeeded(PostWithMedia item) async {
@@ -123,25 +133,44 @@ class FeedNotifier extends Notifier<FeedState> {
         loadingMore: false,
       );
     } on Object catch (e) {
-      state = state.copyWith(loadingMore: false, error: e.toString());
+      state = state.copyWith(
+        loadingMore: false,
+        error: mapToFailure(e),
+      );
     }
   }
 
   Future<void> markStorySeen(String storyId) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final seen = await _readSeenIds();
-    seen.add(storyId);
-    await prefs.setStringList(_seenStoryIdsKey, seen.toList());
+    final list = await _readSeenIdsList();
+    if (!list.contains(storyId)) {
+      list.add(storyId);
+    }
+    final trimmed = list.length <= _maxSeenStoryIds
+        ? list
+        : list.sublist(list.length - _maxSeenStoryIds);
+    await _writeSeenIdsList(trimmed);
     try {
       await ref.read(storyUseCaseProvider).markSeen(storyId);
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      _debugLog('mark story seen failed', e);
+    }
     final user = ref.read(authNotifierProvider).user;
     await _loadStories(user);
   }
 
-  Future<Set<String>> _readSeenIds() async {
+  Future<List<String>> _readSeenIdsList() async {
     final prefs = ref.read(sharedPreferencesProvider);
-    return prefs.getStringList(_seenStoryIdsKey)?.toSet() ?? {};
+    return prefs.getStringList(_seenStoryIdsKey) ?? const <String>[];
+  }
+
+  Future<void> _writeSeenIdsList(List<String> ids) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setStringList(_seenStoryIdsKey, ids);
+  }
+
+  Future<Set<String>> _readSeenIdsSet() async {
+    final list = await _readSeenIdsList();
+    return list.toSet();
   }
 
   List<UserStoryGroup> _applySeen(
@@ -163,18 +192,46 @@ class FeedNotifier extends Notifier<FeedState> {
   }
 
   Future<List<PostWithMedia>> _loadMediaForPosts(List<Post> posts) async {
-    final out = <PostWithMedia>[];
-    for (final post in posts) {
-      final mediaItems = <Media>[];
-      for (final id in post.mediaIds) {
-        try {
-          final m = await _media.fetchMedia(id);
-          mediaItems.add(m);
-        } on Object catch (_) {}
-      }
-      out.add(PostWithMedia(post: post, mediaItems: mediaItems));
+    final futures = posts.map((post) async {
+      final mediaFutures = post.mediaIds.map(_getMediaBestEffort).toList();
+      final mediaItems = (await Future.wait(mediaFutures))
+          .whereType<Media>()
+          .toList(growable: false);
+      return PostWithMedia(post: post, mediaItems: mediaItems);
+    }).toList();
+    return Future.wait(futures);
+  }
+
+  Future<Media?> _getMediaBestEffort(String id) async {
+    final cached = _mediaCache[id];
+    if (cached != null) return cached;
+
+    final inFlight = _mediaInFlight[id];
+    Future<Media> future;
+    if (inFlight == null) {
+      future = _media.fetchMedia(id);
+      _mediaInFlight[id] = future;
+    } else {
+      future = inFlight;
     }
-    return out;
+
+    try {
+      final media = await future;
+      _mediaCache[id] = media;
+      return media;
+    } on Object catch (e) {
+      _debugLog('fetch media failed: $id', e);
+      return null;
+    } finally {
+      unawaited(_mediaInFlight.remove(id) ?? Future<void>.value());
+    }
+  }
+
+  void _debugLog(String message, Object error) {
+    assert(() {
+      debugPrint('[FeedNotifier] $message: $error');
+      return true;
+    }(), 'FeedNotifier debug log');
   }
 
   void removePost(String postId) {

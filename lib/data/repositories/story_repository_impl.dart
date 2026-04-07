@@ -23,7 +23,7 @@ class StoryRepositoryImpl implements StoryRepository {
         '/feed/stories',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -52,7 +52,7 @@ class StoryRepositoryImpl implements StoryRepository {
         '/users/$userId/stories',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -170,7 +170,7 @@ class StoryRepositoryImpl implements StoryRepository {
         '/stories/$storyId/viewers',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -199,7 +199,7 @@ class StoryRepositoryImpl implements StoryRepository {
         '/stories/$storyId/reactions',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

@@ -68,7 +68,7 @@ class UserRepositoryImpl implements UserRepository {
         '/users/$id/posts',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -133,7 +133,7 @@ class UserRepositoryImpl implements UserRepository {
         '/users/$id/followers',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -162,7 +162,7 @@ class UserRepositoryImpl implements UserRepository {
         '/users/$id/following',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

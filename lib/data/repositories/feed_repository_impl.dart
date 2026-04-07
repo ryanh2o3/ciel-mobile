@@ -22,7 +22,7 @@ class FeedRepositoryImpl implements FeedRepository {
         '/feed',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

@@ -26,7 +26,7 @@ class SearchRepositoryImpl implements SearchRepository {
         queryParameters: {
           'q': query,
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -56,7 +56,7 @@ class SearchRepositoryImpl implements SearchRepository {
         queryParameters: {
           'q': query,
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

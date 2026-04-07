@@ -22,7 +22,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
         '/notifications',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

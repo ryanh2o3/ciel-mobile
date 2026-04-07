@@ -104,7 +104,7 @@ class PostRepositoryImpl implements PostRepository {
         '/posts/$id/likes',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;
@@ -153,7 +153,7 @@ class PostRepositoryImpl implements PostRepository {
         '/posts/$postId/comments',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          ...?(cursor == null ? null : <String, dynamic>{'cursor': cursor}),
         },
       );
       final data = res.data;

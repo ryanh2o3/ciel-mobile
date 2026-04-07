@@ -4,6 +4,7 @@ import 'package:ciel_mobile/app/router/navigation_extras.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
 import 'package:flutter/material.dart';
@@ -19,11 +20,17 @@ class FeedScreen extends ConsumerStatefulWidget {
 
 class _FeedScreenState extends ConsumerState<FeedScreen> {
   final ScrollController _scroll = ScrollController();
+  ProviderSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    _authSub = ref.listenManual<AuthState>(authNotifierProvider, (prev, next) {
+      if (prev?.user?.id != next.user?.id) {
+        unawaited(ref.read(feedNotifierProvider.notifier).refresh(next.user));
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authNotifierProvider).user;
       unawaited(
@@ -34,6 +41,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   @override
   void dispose() {
+    _authSub?.close();
     _scroll
       ..removeListener(_onScroll)
       ..dispose();
@@ -66,12 +74,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authNotifierProvider);
     final state = ref.watch(feedNotifierProvider);
-
-    ref.listen(authNotifierProvider, (prev, next) {
-      if (prev?.user?.id != next.user?.id) {
-        unawaited(ref.read(feedNotifierProvider.notifier).refresh(next.user));
-      }
-    });
 
     return Scaffold(
       appBar: AppBar(
@@ -117,7 +119,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      state.error!,
+                      state.error!.userMessage,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),

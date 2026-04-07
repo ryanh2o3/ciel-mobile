@@ -1,3 +1,4 @@
+import 'package:ciel_mobile/core/errors/app_failure.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:flutter/foundation.dart';
@@ -28,7 +29,7 @@ class FeedState {
   final UserStoryGroup? myStoryGroup;
   final bool loading;
   final bool loadingMore;
-  final String? error;
+  final AppFailure? error;
   final String? nextCursor;
 
   FeedState copyWith({
@@ -38,7 +39,7 @@ class FeedState {
     bool clearMyStoryGroup = false,
     bool? loading,
     bool? loadingMore,
-    String? error,
+    AppFailure? error,
     bool clearError = false,
     String? nextCursor,
     bool clearNextCursor = false,

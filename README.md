@@ -1,4 +1,4 @@
-# ciel_mobile
+# Ciel Mobile
 
 Flutter client for **Ciel Social** (iOS + Android). Layered architecture: `app/` (shell, DI, router, theme), `core/`, `domain/`, `data/`, `features/`, `ui/`.
 
@@ -7,6 +7,7 @@ Flutter client for **Ciel Social** (iOS + Android). Layered architecture: `app/`
 - Flutter SDK (see `pubspec.yaml` `environment.sdk`)
 - Ciel backend running locally or a reachable `API_BASE_URL`
 - **iOS**: [CocoaPods](https://cocoapods.org/) (`brew install cocoapods` or `gem install cocoapods`). Native plugins (e.g. `flutter_secure_storage`) require installing pods after dependencies change.
+- **Android**: Android Studio (or Android SDK + platform tools) + a configured emulator/device.
 
 ### iOS: CocoaPods workflow (read this before `pod install`)
 
@@ -61,6 +62,47 @@ Still failing?
 2. **Product → Clean Build Folder**, quit Xcode, delete the **`Runner-*`** folder under **Derived Data**, reopen the **workspace**, build again.
 3. **Edit Scheme… → Build**: confirm **Find Implicit Dependencies** is enabled (Build Options in newer Xcode).
 
+## Android
+
+### Android: setup
+
+- Install **Android Studio** and ensure the **Android SDK** is installed.
+- Confirm toolchains are visible to Flutter:
+
+```bash
+flutter doctor -v
+```
+
+### Android: run
+
+From the repo root:
+
+```bash
+flutter pub get
+flutter run
+```
+
+### Android: build APK / App Bundle
+
+```bash
+flutter build apk
+flutter build appbundle
+```
+
+### Android: local backend networking
+
+- **Android emulator → host machine**: use `http://10.0.2.2:8080/v1`
+- **Physical device → host machine**: use your machine’s LAN IP, e.g. `http://192.168.1.10:8080/v1`
+
+Debug Android builds merge `usesCleartextTraffic=true` for HTTP local development.
+
+### Android: release signing (public repo note)
+
+This repo intentionally does **not** include any signing keys.
+
+- Add your local `key.properties` and keystore under `android/` as needed.
+- Keep them out of git (common patterns are already ignored by default Flutter `.gitignore`, but always verify before publishing).
+
 ## API base URL
 
 Defaults to `https://api.ciel-social.eu/v1` (see `lib/core/config/app_config.dart`). Override at compile time:
@@ -94,3 +136,7 @@ chmod +x tool/verify.sh
 
 - [Flutter app architecture](https://docs.flutter.dev/app-architecture)
 - [Flutter documentation](https://docs.flutter.dev/)
+
+## License
+
+Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0-or-later). See [`LICENSE`](LICENSE).

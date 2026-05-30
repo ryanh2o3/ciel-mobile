@@ -1,6 +1,7 @@
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/domain/paginated_result.dart';
 import 'package:ciel_mobile/domain/repositories/story_repository.dart';
+import 'package:ciel_mobile/domain/usecases/media_upload_progress.dart';
 import 'package:ciel_mobile/domain/usecases/media_use_case.dart';
 
 class StoryUseCase {
@@ -34,9 +35,11 @@ class StoryUseCase {
     required List<int> imageBytes,
     required StoryVisibility visibility,
     String? caption,
+    void Function(MediaUploadProgress progress)? onProgress,
   }) async {
     final mediaId = await _mediaUseCase.uploadImageAndWaitForMediaId(
       data: imageBytes,
+      onProgress: onProgress,
     );
     return _storyRepository.createStory(
       mediaId: mediaId,

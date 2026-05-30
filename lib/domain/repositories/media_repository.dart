@@ -33,6 +33,7 @@ abstract class MediaRepository {
     required String uploadUrl,
     required Map<String, String> headers,
     required List<int> data,
+    void Function(int sent, int total)? onSendProgress,
   });
 
   Future<void> completeUpload(String uploadId);

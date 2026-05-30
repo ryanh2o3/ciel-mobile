@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:ciel_mobile/app/providers/dependency_providers.dart';
-import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/stories/presentation/create_story_notifier.dart';
 import 'package:ciel_mobile/features/stories/presentation/story_audience_options.dart';
+import 'package:ciel_mobile/features/uploads/create_upload_overlay_host.dart';
+import 'package:ciel_mobile/features/uploads/create_upload_state.dart';
 import 'package:ciel_mobile/ui/ciel_audience_picker_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_compose_row.dart';
 import 'package:ciel_mobile/ui/ciel_primary_button.dart';
@@ -28,8 +29,7 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   final _caption = TextEditingController();
   XFile? _image;
   StoryVisibility _visibility = StoryVisibility.public;
-  bool _busy = false;
-  String? _error;
+  String? _formError;
 
   @override
   void initState() {
@@ -46,7 +46,10 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   Future<void> _pickImage() async {
     final file = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (file != null && mounted) {
-      setState(() => _image = file);
+      setState(() {
+        _image = file;
+        _formError = null;
+      });
     }
   }
 
@@ -64,111 +67,106 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   Future<void> _submit() async {
     final file = _image;
     if (file == null) {
-      setState(() => _error = 'Choose a photo to share.');
+      setState(() => _formError = 'Choose a photo to share.');
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final normalized = await ImageNormalizer.normalizeExifOrientation(
-        File(file.path),
-      );
-      final bytes = await normalized.readAsBytes();
-      final caption = _caption.text.trim();
-      await ref
-          .read(storyUseCaseProvider)
-          .createStoryFromImage(
-            imageBytes: bytes,
-            caption: caption.isEmpty ? null : caption,
-            visibility: _visibility,
-          );
-      if (!mounted) return;
-      ref.invalidate(feedNotifierProvider);
-      context.pop();
-    } on Object catch (e) {
-      if (mounted) {
-        setState(() => _error = e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
+    setState(() => _formError = null);
+    final caption = _caption.text.trim();
+    final ok = await ref
+        .read(createStoryControllerProvider.notifier)
+        .submit(
+          image: file,
+          caption: caption.isEmpty ? null : caption,
+          visibility: _visibility,
+        );
+    if (!ok || !mounted) return;
+    ref.invalidate(feedNotifierProvider);
+    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = !_busy && _image != null;
+    final upload = ref.watch(createStoryControllerProvider);
+    final busy = upload.isInFlight;
+    final canSubmit = !busy && _image != null;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: _busy ? null : () => context.pop(),
+          onPressed: busy ? null : () => context.pop(),
           tooltip: 'Cancel',
         ),
         title: const Text('New story'),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  CielSpacing.md,
-                  CielSpacing.sm,
-                  CielSpacing.md,
-                  CielSpacing.md,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      CielSpacing.md,
+                      CielSpacing.sm,
+                      CielSpacing.md,
+                      CielSpacing.md,
+                    ),
+                    children: [
+                      if (_formError != null) ...[
+                        _ErrorBanner(message: _formError!),
+                        const SizedBox(height: CielSpacing.md),
+                      ],
+                      _CaptionRow(
+                        file: _image == null ? null : File(_image!.path),
+                        controller: _caption,
+                        onPickImage: busy ? null : _pickImage,
+                        enabled: !busy,
+                        captionLimit: _captionLimit,
+                      ),
+                      const SizedBox(height: CielSpacing.lg),
+                      CielComposeRow(
+                        icon: Icons.visibility_outlined,
+                        label: 'Audience',
+                        trailing: storyVisibilityLabel(_visibility),
+                        enabled: !busy,
+                        onTap: _pickAudience,
+                      ),
+                      const SizedBox(height: CielSpacing.sm),
+                      const CielComposeRow(
+                        icon: Icons.location_on_outlined,
+                        label: 'Add location',
+                        enabled: false,
+                      ),
+                    ],
+                  ),
                 ),
-                children: [
-                  if (_error != null) ...[
-                    _ErrorBanner(message: _error!),
-                    const SizedBox(height: CielSpacing.md),
-                  ],
-                  _CaptionRow(
-                    file: _image == null ? null : File(_image!.path),
-                    controller: _caption,
-                    onPickImage: _busy ? null : _pickImage,
-                    enabled: !_busy,
-                    captionLimit: _captionLimit,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    CielSpacing.md,
+                    CielSpacing.sm,
+                    CielSpacing.md,
+                    CielSpacing.md,
                   ),
-                  const SizedBox(height: CielSpacing.lg),
-                  CielComposeRow(
-                    icon: Icons.visibility_outlined,
-                    label: 'Audience',
-                    trailing: storyVisibilityLabel(_visibility),
-                    enabled: !_busy,
-                    onTap: _pickAudience,
+                  child: CielPrimaryButton(
+                    label: 'Share story',
+                    isLoading: busy,
+                    onPressed: canSubmit ? _submit : null,
                   ),
-                  const SizedBox(height: CielSpacing.sm),
-                  const CielComposeRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Add location',
-                    enabled: false,
-                  ),
-                  if (_busy) ...[
-                    const SizedBox(height: CielSpacing.lg),
-                    const LinearProgressIndicator(),
-                  ],
-                ],
+                ),
+              ],
+            ),
+          ),
+          if (busy || upload is CreateUploadFailed)
+            Positioned.fill(
+              child: CreateUploadOverlayHost(
+                state: upload,
+                onRetry: _submit,
+                onDismiss: () =>
+                    ref.read(createStoryControllerProvider.notifier).reset(),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                CielSpacing.md,
-                CielSpacing.sm,
-                CielSpacing.md,
-                CielSpacing.md,
-              ),
-              child: CielPrimaryButton(
-                label: 'Share story',
-                isLoading: _busy,
-                onPressed: canSubmit ? _submit : null,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

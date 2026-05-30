@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:ciel_mobile/app/providers/dependency_providers.dart';
-import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/post/presentation/create_post_notifier.dart';
+import 'package:ciel_mobile/features/uploads/create_upload_overlay_host.dart';
+import 'package:ciel_mobile/features/uploads/create_upload_state.dart';
 import 'package:ciel_mobile/ui/ciel_compose_row.dart';
 import 'package:ciel_mobile/ui/ciel_primary_button.dart';
 import 'package:ciel_mobile/ui/ciel_thumbnail.dart';
@@ -26,8 +27,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   final _caption = TextEditingController();
   final List<XFile> _images = [];
-  bool _busy = false;
-  String? _error;
+  String? _formError;
 
   @override
   void initState() {
@@ -48,6 +48,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         _images
           ..clear()
           ..addAll(list);
+        _formError = null;
       });
     }
   }
@@ -58,118 +59,109 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   Future<void> _submit() async {
     if (_images.isEmpty) {
-      setState(() => _error = 'Choose at least one photo to share.');
+      setState(() => _formError = 'Choose at least one photo to share.');
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final media = ref.read(mediaUseCaseProvider);
-      final post = ref.read(postUseCaseProvider);
-      final ids = <String>[];
-      for (final file in _images) {
-        final normalized = await ImageNormalizer.normalizeExifOrientation(
-          File(file.path),
+    setState(() => _formError = null);
+    final caption = _caption.text.trim();
+    final ok = await ref
+        .read(createPostControllerProvider.notifier)
+        .submit(
+          images: List.unmodifiable(_images),
+          caption: caption.isEmpty ? null : caption,
         );
-        final bytes = await normalized.readAsBytes();
-        ids.add(await media.uploadImageAndWaitForMediaId(data: bytes));
-      }
-      final caption = _caption.text.trim();
-      await post.createPost(
-        mediaIds: ids,
-        caption: caption.isEmpty ? null : caption,
-      );
-      if (!mounted) return;
-      final user = ref.read(authNotifierProvider).user;
-      unawaited(ref.read(feedNotifierProvider.notifier).refresh(user));
-      context.pop();
-    } on Object catch (e) {
-      if (mounted) {
-        setState(() => _error = e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
+    if (!ok || !mounted) return;
+    final user = ref.read(authNotifierProvider).user;
+    unawaited(ref.read(feedNotifierProvider.notifier).refresh(user));
+    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = !_busy && _images.isNotEmpty;
+    final upload = ref.watch(createPostControllerProvider);
+    final busy = upload.isInFlight;
+    final canSubmit = !busy && _images.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: _busy ? null : () => context.pop(),
+          onPressed: busy ? null : () => context.pop(),
           tooltip: 'Cancel',
         ),
         title: const Text('New post'),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  CielSpacing.md,
-                  CielSpacing.sm,
-                  CielSpacing.md,
-                  CielSpacing.md,
-                ),
-                children: [
-                  if (_error != null) ...[
-                    _ErrorBanner(message: _error!),
-                    const SizedBox(height: CielSpacing.md),
-                  ],
-                  _CaptionRow(
-                    leadingFile: _images.isEmpty
-                        ? null
-                        : File(_images.first.path),
-                    leadingCount: _images.length,
-                    controller: _caption,
-                    onPickImage: _busy ? null : _pickImages,
-                    enabled: !_busy,
-                    captionLimit: _captionLimit,
-                  ),
-                  if (_images.isNotEmpty) ...[
-                    const SizedBox(height: CielSpacing.md),
-                    _ThumbStrip(
-                      images: _images,
-                      onRemove: _busy ? null : _removeAt,
-                      onAddMore: _busy ? null : _pickImages,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      CielSpacing.md,
+                      CielSpacing.sm,
+                      CielSpacing.md,
+                      CielSpacing.md,
                     ),
-                  ],
-                  const SizedBox(height: CielSpacing.lg),
-                  const CielComposeRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Add location',
-                    enabled: false,
+                    children: [
+                      if (_formError != null) ...[
+                        _ErrorBanner(message: _formError!),
+                        const SizedBox(height: CielSpacing.md),
+                      ],
+                      _CaptionRow(
+                        leadingFile: _images.isEmpty
+                            ? null
+                            : File(_images.first.path),
+                        leadingCount: _images.length,
+                        controller: _caption,
+                        onPickImage: busy ? null : _pickImages,
+                        enabled: !busy,
+                        captionLimit: _captionLimit,
+                      ),
+                      if (_images.isNotEmpty) ...[
+                        const SizedBox(height: CielSpacing.md),
+                        _ThumbStrip(
+                          images: _images,
+                          onRemove: busy ? null : _removeAt,
+                          onAddMore: busy ? null : _pickImages,
+                        ),
+                      ],
+                      const SizedBox(height: CielSpacing.lg),
+                      const CielComposeRow(
+                        icon: Icons.location_on_outlined,
+                        label: 'Add location',
+                        enabled: false,
+                      ),
+                    ],
                   ),
-                  if (_busy) ...[
-                    const SizedBox(height: CielSpacing.lg),
-                    const LinearProgressIndicator(),
-                  ],
-                ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    CielSpacing.md,
+                    CielSpacing.sm,
+                    CielSpacing.md,
+                    CielSpacing.md,
+                  ),
+                  child: CielPrimaryButton(
+                    label: 'Share',
+                    isLoading: busy,
+                    onPressed: canSubmit ? _submit : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (busy || upload is CreateUploadFailed)
+            Positioned.fill(
+              child: CreateUploadOverlayHost(
+                state: upload,
+                onRetry: _submit,
+                onDismiss: () =>
+                    ref.read(createPostControllerProvider.notifier).reset(),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                CielSpacing.md,
-                CielSpacing.sm,
-                CielSpacing.md,
-                CielSpacing.md,
-              ),
-              child: CielPrimaryButton(
-                label: 'Share',
-                isLoading: _busy,
-                onPressed: canSubmit ? _submit : null,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

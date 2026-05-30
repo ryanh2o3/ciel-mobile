@@ -53,12 +53,14 @@ class MediaRepositoryImpl implements MediaRepository {
     required String uploadUrl,
     required Map<String, String> headers,
     required List<int> data,
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     try {
       final res = await _upload.put<void>(
         uploadUrl,
         data: data,
         options: Options(headers: headers),
+        onSendProgress: onSendProgress,
       );
       if (res.statusCode == null || res.statusCode! >= 400) {
         throw AppException('Upload failed', cause: res.statusMessage);

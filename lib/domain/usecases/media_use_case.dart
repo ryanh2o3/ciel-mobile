@@ -1,5 +1,6 @@
 import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/repositories/media_repository.dart';
+import 'package:ciel_mobile/domain/usecases/media_upload_progress.dart';
 
 class MediaUseCase {
   MediaUseCase(this._repository);
@@ -20,11 +21,13 @@ class MediaUseCase {
     required String uploadUrl,
     required Map<String, String> headers,
     required List<int> data,
+    void Function(int sent, int total)? onSendProgress,
   }) {
     return _repository.uploadBytes(
       uploadUrl: uploadUrl,
       headers: headers,
       data: data,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -41,10 +44,15 @@ class MediaUseCase {
   Future<void> deleteMedia(String id) => _repository.deleteMedia(id);
 
   /// Upload raw image bytes and poll until `processed_media_id` is available.
+  ///
+  /// [onProgress] receives phase transitions (preparing → sending → processing)
+  /// and per-byte upload progress.
   Future<String> uploadImageAndWaitForMediaId({
     required List<int> data,
     String contentType = 'image/jpeg',
+    void Function(MediaUploadProgress progress)? onProgress,
   }) async {
+    onProgress?.call(const MediaUploadPreparing());
     final intent = await createUploadIntent(
       contentType: contentType,
       bytes: data.length,
@@ -53,7 +61,16 @@ class MediaUseCase {
       uploadUrl: intent.uploadUrl,
       headers: intent.headers,
       data: data,
+      onSendProgress: onProgress == null
+          ? null
+          : (sent, total) => onProgress(
+              MediaUploadSending(
+                sent: sent,
+                total: total <= 0 ? data.length : total,
+              ),
+            ),
     );
+    onProgress?.call(const MediaUploadProcessing());
     await completeUpload(intent.uploadId);
 
     const maxAttempts = 20;

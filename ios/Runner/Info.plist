@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>PicShare uses your camera so you can capture photos to post or share to your story.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PicShare needs to access your photo library so you can choose photos to share.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

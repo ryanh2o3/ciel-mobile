@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ciel_mobile/core/media/image_editor.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:ciel_mobile/features/post/presentation/create_post_notifier.dart';
+import 'package:ciel_mobile/features/post/presentation/post_image_reorder.dart';
 import 'package:ciel_mobile/features/uploads/create_upload_overlay_host.dart';
 import 'package:ciel_mobile/features/uploads/create_upload_state.dart';
+import 'package:ciel_mobile/features/uploads/draft/create_draft_store.dart';
+import 'package:ciel_mobile/features/uploads/draft/create_drafts.dart';
 import 'package:ciel_mobile/ui/ciel_compose_row.dart';
 import 'package:ciel_mobile/ui/ciel_primary_button.dart';
+import 'package:ciel_mobile/ui/ciel_source_chooser_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_thumbnail.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +37,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   @override
   void initState() {
     super.initState();
-    _caption.addListener(() => setState(() {}));
+    _caption.addListener(() {
+      setState(() {});
+      _scheduleDraftSave();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerDraftRestore());
   }
 
   @override
@@ -41,7 +50,74 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     super.dispose();
   }
 
+  void _scheduleDraftSave() {
+    final store = ref.read(createDraftStoreProvider);
+    final draft = CreatePostDraft(
+      imagePaths: _images.map((f) => f.path).toList(growable: false),
+      caption: _caption.text,
+      updatedAt: DateTime.now(),
+    );
+    unawaited(store.savePost(draft));
+  }
+
+  Future<void> _offerDraftRestore() async {
+    if (!mounted) return;
+    final store = ref.read(createDraftStoreProvider);
+    final draft = store.loadPost();
+    if (draft == null) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 8),
+        content: Text(
+          draft.imagePaths.isNotEmpty
+              ? 'Restored your in-progress post.'
+              : 'Restored your draft caption.',
+        ),
+        action: SnackBarAction(
+          label: 'Discard',
+          onPressed: () {
+            unawaited(store.clearPost());
+            if (mounted) {
+              setState(() {
+                _images.clear();
+                _caption.text = '';
+              });
+            }
+          },
+        ),
+      ),
+    );
+    setState(() {
+      _images
+        ..clear()
+        ..addAll(draft.imagePaths.map(XFile.new));
+      _caption.text = draft.caption;
+    });
+  }
+
   Future<void> _pickImages() async {
+    final source = await showCielPhotoSourceSheet(context);
+    if (source == null || !mounted) return;
+    if (source == CielPhotoSource.camera) {
+      final file = await CielImageEditor.pickAndCrop(
+        context: context,
+        preset: CielCropPreset.square,
+        source: ImageSource.camera,
+      );
+      if (file != null && mounted) {
+        setState(() {
+          _images
+            ..clear()
+            ..add(file);
+          _formError = null;
+        });
+        _scheduleDraftSave();
+      }
+      return;
+    }
     final list = await ImagePicker().pickMultiImage();
     if (list.isNotEmpty && mounted) {
       setState(() {
@@ -50,11 +126,37 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           ..addAll(list);
         _formError = null;
       });
+      _scheduleDraftSave();
+    }
+  }
+
+  Future<void> _editAt(int index) async {
+    final src = _images[index];
+    final cropped = await CielImageEditor.crop(
+      context: context,
+      sourcePath: src.path,
+      preset: CielCropPreset.square,
+    );
+    if (cropped != null && mounted) {
+      setState(() => _images[index] = cropped);
+      _scheduleDraftSave();
     }
   }
 
   void _removeAt(int index) {
     setState(() => _images.removeAt(index));
+    _scheduleDraftSave();
+  }
+
+  void _reorder(int oldIndex, int newIndex) {
+    final reordered = applyReorder(_images, oldIndex, newIndex);
+    if (identical(reordered, _images)) return;
+    setState(() {
+      _images
+        ..clear()
+        ..addAll(reordered);
+    });
+    _scheduleDraftSave();
   }
 
   Future<void> _submit() async {
@@ -71,6 +173,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           caption: caption.isEmpty ? null : caption,
         );
     if (!ok || !mounted) return;
+    await ref.read(createDraftStoreProvider).clearPost();
+    if (!mounted) return;
     final user = ref.read(authNotifierProvider).user;
     unawaited(ref.read(feedNotifierProvider.notifier).refresh(user));
     context.pop();
@@ -124,7 +228,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         _ThumbStrip(
                           images: _images,
                           onRemove: busy ? null : _removeAt,
+                          onEdit: busy ? null : _editAt,
+                          onReorder: busy ? null : _reorder,
                           onAddMore: busy ? null : _pickImages,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: CielSpacing.xs),
+                          child: Text(
+                            'Long-press a photo to reorder · tap to crop',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                         ),
                       ],
                       const SizedBox(height: CielSpacing.lg),
@@ -250,11 +368,15 @@ class _ThumbStrip extends StatelessWidget {
   const _ThumbStrip({
     required this.images,
     required this.onRemove,
+    required this.onEdit,
+    required this.onReorder,
     required this.onAddMore,
   });
 
   final List<XFile> images;
   final void Function(int index)? onRemove;
+  final void Function(int index)? onEdit;
+  final void Function(int oldIndex, int newIndex)? onReorder;
   final VoidCallback? onAddMore;
 
   @override
@@ -262,24 +384,36 @@ class _ThumbStrip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 96,
-      child: ListView.separated(
+      child: ReorderableListView.builder(
         scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
         itemCount: images.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: CielSpacing.sm),
+        proxyDecorator: (child, _, _) => Material(
+          color: Colors.transparent,
+          elevation: 8,
+          borderRadius: BorderRadius.circular(CielRadii.lg),
+          child: child,
+        ),
+        onReorder: (oldIndex, newIndex) =>
+            onReorder?.call(oldIndex, newIndex),
         itemBuilder: (context, index) {
           if (index == images.length) {
-            return SizedBox(
-              width: 96,
-              child: Material(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(CielRadii.lg),
-                child: InkWell(
+            return Padding(
+              key: const ValueKey('__add_more__'),
+              padding: const EdgeInsets.only(right: CielSpacing.sm),
+              child: SizedBox(
+                width: 96,
+                child: Material(
+                  color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(CielRadii.lg),
-                  onTap: onAddMore,
-                  child: Center(
-                    child: Icon(
-                      Icons.add,
-                      color: scheme.onSurfaceVariant,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(CielRadii.lg),
+                    onTap: onAddMore,
+                    child: Center(
+                      child: Icon(
+                        Icons.add,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -287,38 +421,50 @@ class _ThumbStrip extends StatelessWidget {
             );
           }
           final file = images[index];
-          return SizedBox(
-            width: 96,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(CielRadii.lg),
-                    child: Image.file(File(file.path), fit: BoxFit.cover),
-                  ),
-                ),
-                if (onRemove != null)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Material(
-                      color: scheme.scrim.withValues(alpha: 0.6),
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => onRemove!(index),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: Colors.white,
-                          ),
+          return Padding(
+            key: ValueKey('thumb_${file.path}'),
+            padding: const EdgeInsets.only(right: CielSpacing.sm),
+            child: ReorderableDelayedDragStartListener(
+              index: index,
+              child: SizedBox(
+                width: 96,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(CielRadii.lg),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: onEdit == null ? null : () => onEdit!(index),
+                          child: Image.file(File(file.path), fit: BoxFit.cover),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                    if (onRemove != null)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Material(
+                          color: scheme.scrim.withValues(alpha: 0.6),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => onRemove!(index),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           );
         },

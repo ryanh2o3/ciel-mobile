@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
+import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
@@ -180,7 +181,11 @@ class _ReactionRowState extends ConsumerState<_ReactionRow> {
                   await ref
                       .read(storyUseCaseProvider)
                       .addReaction(storyId: widget.storyId, emoji: e);
-                } on Object catch (_) {}
+                } on Object catch (err) {
+                  if (context.mounted) {
+                    showErrorSnackBar(context, err);
+                  }
+                }
               },
               icon: Text(e, style: const TextStyle(fontSize: 28)),
             ),

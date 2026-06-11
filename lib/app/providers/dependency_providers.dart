@@ -6,6 +6,7 @@ import 'package:ciel_mobile/data/repositories/auth_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/feed_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/invite_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/media_repository_impl.dart';
+import 'package:ciel_mobile/data/repositories/moderation_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/notifications_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/post_repository_impl.dart';
 import 'package:ciel_mobile/data/repositories/safety_repository_impl.dart';
@@ -16,6 +17,7 @@ import 'package:ciel_mobile/domain/repositories/auth_repository.dart';
 import 'package:ciel_mobile/domain/repositories/feed_repository.dart';
 import 'package:ciel_mobile/domain/repositories/invite_repository.dart';
 import 'package:ciel_mobile/domain/repositories/media_repository.dart';
+import 'package:ciel_mobile/domain/repositories/moderation_repository.dart';
 import 'package:ciel_mobile/domain/repositories/notifications_repository.dart';
 import 'package:ciel_mobile/domain/repositories/post_repository.dart';
 import 'package:ciel_mobile/domain/repositories/safety_repository.dart';
@@ -26,6 +28,7 @@ import 'package:ciel_mobile/domain/usecases/auth_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/feed_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/invite_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/media_use_case.dart';
+import 'package:ciel_mobile/domain/usecases/moderation_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/notifications_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/post_use_case.dart';
 import 'package:ciel_mobile/domain/usecases/safety_use_case.dart';
@@ -104,6 +107,10 @@ final safetyRepositoryProvider = Provider<SafetyRepository>(
   (ref) => SafetyRepositoryImpl(ref.watch(dioProvider)),
 );
 
+final moderationRepositoryProvider = Provider<ModerationRepository>(
+  (ref) => ModerationRepositoryImpl(ref.watch(dioProvider)),
+);
+
 final authUseCaseProvider = Provider<AuthUseCase>(
   (ref) => AuthUseCase(ref.watch(authRepositoryProvider)),
 );
@@ -145,4 +152,8 @@ final inviteUseCaseProvider = Provider<InviteUseCase>(
 
 final safetyUseCaseProvider = Provider<SafetyUseCase>(
   (ref) => SafetyUseCase(ref.watch(safetyRepositoryProvider)),
+);
+
+final moderationUseCaseProvider = Provider<ModerationUseCase>(
+  (ref) => ModerationUseCase(ref.watch(moderationRepositoryProvider)),
 );

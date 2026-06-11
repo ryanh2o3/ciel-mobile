@@ -1,9 +1,11 @@
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/domain/entities/signup_request.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -89,6 +91,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(appConfigProvider);
+    final privacyUri = Uri.parse(config.privacyPolicyUrl);
+    final termsUri = Uri.parse(config.termsOfUseUrl);
     return Scaffold(
       appBar: AppBar(title: const Text('Create account')),
       body: ListView(
@@ -142,6 +147,40 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             obscureText: true,
           ),
           const SizedBox(height: 16),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: Theme.of(context).textTheme.bodySmall,
+              children: [
+                const TextSpan(text: 'By signing up, you agree to our '),
+                TextSpan(
+                  text: 'Terms of Use',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => launchUrl(
+                          termsUri,
+                          mode: LaunchMode.externalApplication,
+                        ),
+                ),
+                const TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => launchUrl(
+                          privacyUri,
+                          mode: LaunchMode.externalApplication,
+                        ),
+                ),
+                const TextSpan(text: '.'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           FilledButton(
             onPressed: _signup,
             child: const Text('Sign up'),

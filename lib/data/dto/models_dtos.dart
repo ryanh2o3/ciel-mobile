@@ -184,6 +184,8 @@ class CommentDto {
     required this.postId,
     required this.body,
     required this.createdAt,
+    this.userHandle,
+    this.userDisplayName,
   });
 
   factory CommentDto.fromJson(Map<String, dynamic> json) {
@@ -193,6 +195,8 @@ class CommentDto {
       postId: json['post_id'] as String,
       body: json['body'] as String,
       createdAt: parseApiDateTime(json['created_at'] as String),
+      userHandle: json['user_handle'] as String?,
+      userDisplayName: json['user_display_name'] as String?,
     );
   }
 
@@ -203,6 +207,8 @@ class CommentDto {
       postId: postId,
       body: body,
       createdAt: createdAt,
+      userHandle: userHandle,
+      userDisplayName: userDisplayName,
     );
   }
 
@@ -211,6 +217,8 @@ class CommentDto {
   final String postId;
   final String body;
   final DateTime createdAt;
+  final String? userHandle;
+  final String? userDisplayName;
 }
 
 Map<String, dynamic> _payloadFromJson(dynamic raw) {

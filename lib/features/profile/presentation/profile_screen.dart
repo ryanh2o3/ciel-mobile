@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/core/media/image_normalizer.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/relationship.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
+import 'package:ciel_mobile/ui/report_user_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,9 +55,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       Relationship? rel;
       final me = ref.read(authNotifierProvider).user;
       if (me != null && me.id != id) {
-        try {
-          rel = await ref.read(userUseCaseProvider).fetchRelationship(id);
-        } on Object catch (_) {}
+        rel = await ref.read(userUseCaseProvider).fetchRelationship(id);
       }
       final page = await ref
           .read(userUseCaseProvider)
@@ -94,7 +94,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         await ref.read(userUseCaseProvider).follow(u.id);
       }
       await _load(u.id);
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, e);
+      }
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    final u = _user;
+    final r = _rel;
+    if (u == null || r == null) {
+      return;
+    }
+    try {
+      if (r.isBlocking) {
+        await ref.read(userUseCaseProvider).unblock(u.id);
+        if (mounted) {
+          showSuccessSnackBar(context, 'User unblocked');
+        }
+      } else {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Block user?'),
+            content: const Text(
+              'They will no longer be able to see your content or '
+              'interact with you.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('Block'),
+              ),
+            ],
+          ),
+        );
+        if (ok != true) {
+          return;
+        }
+        await ref.read(userUseCaseProvider).block(u.id);
+        if (mounted) {
+          showSuccessSnackBar(context, 'User blocked');
+        }
+      }
+      await _load(u.id);
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, e);
+      }
+    }
+  }
+
+  Future<void> _reportUser() async {
+    final u = _user;
+    if (u == null) {
+      return;
+    }
+    final reason = await showReportUserSheet(context);
+    if (reason == null) {
+      return;
+    }
+    try {
+      await ref
+          .read(moderationUseCaseProvider)
+          .reportUser(userId: u.id, reason: reason.isEmpty ? null : reason);
+      if (mounted) {
+        showSuccessSnackBar(context, 'Report submitted');
+      }
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, e);
+      }
+    }
   }
 
   Future<void> _changeAvatar() async {
@@ -124,7 +200,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
       await _load(me.id);
       unawaited(ref.read(authNotifierProvider.notifier).restoreSession());
-    } on Object catch (_) {}
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, e);
+      }
+    }
   }
 
   @override
@@ -145,17 +225,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final u = _user!;
+    final rel = _rel;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(u.displayName),
         actions: [
-          if (isSelf) ...[
+          if (isSelf)
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               onPressed: () => context.push('/settings'),
+            )
+          else if (rel != null)
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                switch (value) {
+                  case 'block':
+                    await _toggleBlock();
+                  case 'report':
+                    await _reportUser();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'block',
+                  child: Text(rel.isBlocking ? 'Unblock' : 'Block'),
+                ),
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Text('Report'),
+                ),
+              ],
             ),
-          ],
         ],
       ),
       body: CustomScrollView(
@@ -191,12 +292,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           '${u.followersCount} followers · '
                           '${u.followingCount} following',
                         ),
-                        if (!isSelf && _rel != null) ...[
+                        if (!isSelf && rel != null) ...[
                           const SizedBox(height: 12),
                           FilledButton(
-                            onPressed: _toggleFollow,
+                            onPressed: rel.isBlockedBy ? null : _toggleFollow,
                             child: Text(
-                              _rel!.isFollowing ? 'Unfollow' : 'Follow',
+                              rel.isFollowing ? 'Unfollow' : 'Follow',
                             ),
                           ),
                         ],

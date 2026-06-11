@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/errors/app_failure_mapper.dart';
+import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/app_notification.dart';
+import 'package:ciel_mobile/features/notifications/notification_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,7 +56,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     } on Object catch (e) {
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = mapToFailure(e).userMessage;
       });
     }
   }
@@ -62,7 +65,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (n.readAt == null) {
       try {
         await ref.read(notificationsUseCaseProvider).markRead(n.id);
-      } on Object catch (_) {}
+      } on Object catch (e) {
+        if (mounted) {
+          showErrorSnackBar(context, e);
+        }
+      }
     }
     final postId = n.payload['post_id']?.toString();
     if (postId != null && mounted) {
@@ -90,8 +97,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 itemBuilder: (context, i) {
                   final n = _items[i];
                   return ListTile(
-                    title: Text(n.notificationType),
-                    subtitle: Text(n.payload.toString()),
+                    title: Text(notificationMessage(n)),
+                    subtitle: Text(
+                      _formatWhen(n.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     trailing: n.readAt == null
                         ? Icon(
                             Icons.circle,
@@ -105,5 +115,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
       ),
     );
+  }
+
+  String _formatWhen(DateTime when) {
+    final diff = DateTime.now().difference(when);
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    }
+    if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    }
+    if (diff.inDays < 1) {
+      return '${diff.inHours}h ago';
+    }
+    return '${diff.inDays}d ago';
   }
 }

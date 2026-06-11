@@ -77,4 +77,13 @@ class SafetyRepositoryImpl implements SafetyRepository {
       throw mapDioException(e);
     }
   }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _dio.delete<void>('/account');
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
 }

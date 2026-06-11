@@ -10,4 +10,6 @@ abstract class SafetyRepository {
   Future<TrustScore> fetchTrustScore();
 
   Future<RateLimits> fetchRateLimits();
+
+  Future<void> deleteAccount();
 }

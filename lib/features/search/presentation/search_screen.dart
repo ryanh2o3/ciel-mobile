@@ -1,4 +1,5 @@
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
@@ -54,9 +55,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           _busy = false;
         });
       }
-    } on Object catch (_) {
+    } on Object catch (e) {
       if (mounted) {
         setState(() => _busy = false);
+        showErrorSnackBar(context, e);
       }
     }
   }

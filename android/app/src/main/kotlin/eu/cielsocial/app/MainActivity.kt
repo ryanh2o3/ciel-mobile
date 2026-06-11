@@ -1,4 +1,4 @@
-package com.example.ciel_mobile
+package eu.cielsocial.app
 
 import io.flutter.embedding.android.FlutterActivity
 

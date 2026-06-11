@@ -5,13 +5,13 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>PicShare uses your camera so you can capture photos to post or share to your story.</string>
+	<string>Ciel uses your camera so you can capture photos to post or share to your story.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>PicShare needs to access your photo library so you can choose photos to share.</string>
+	<string>Ciel needs to access your photo library so you can choose photos to share.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ciel Mobile</string>
+	<string>Ciel</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -70,6 +70,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

@@ -18,4 +18,6 @@ class SafetyUseCase {
   Future<TrustScore> fetchTrustScore() => _repository.fetchTrustScore();
 
   Future<RateLimits> fetchRateLimits() => _repository.fetchRateLimits();
+
+  Future<void> deleteAccount() => _repository.deleteAccount();
 }

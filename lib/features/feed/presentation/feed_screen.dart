@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
+import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
@@ -350,7 +352,7 @@ class _StoryAvatar extends StatelessWidget {
   }
 }
 
-class _PostTile extends StatelessWidget {
+class _PostTile extends ConsumerStatefulWidget {
   const _PostTile({
     required this.item,
     required this.onOpen,
@@ -362,13 +364,44 @@ class _PostTile extends StatelessWidget {
   final VoidCallback onOpenProfile;
 
   @override
+  ConsumerState<_PostTile> createState() => _PostTileState();
+}
+
+class _PostTileState extends ConsumerState<_PostTile> {
+  bool _liked = false;
+  bool _busy = false;
+
+  Future<void> _like() async {
+    if (_busy || _liked) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _liked = true;
+    });
+    try {
+      await ref.read(postUseCaseProvider).likePost(widget.item.post.id);
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() => _liked = false);
+        showErrorSnackBar(context, e);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final thumb = item.primaryMedia?.mediumUrl ?? item.primaryMedia?.thumbUrl;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onOpen,
+        onTap: widget.onOpen,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -384,7 +417,7 @@ class _PostTile extends StatelessWidget {
                 item.post.ownerDisplayName ?? item.post.ownerHandle ?? '',
               ),
               subtitle: Text('@${item.post.ownerHandle ?? ''}'),
-              onTap: onOpenProfile,
+              onTap: widget.onOpenProfile,
             ),
             AspectRatio(
               aspectRatio: 1,
@@ -395,6 +428,16 @@ class _PostTile extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 child: Text(item.post.caption!),
               ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 4),
+              child: IconButton(
+                icon: Icon(
+                  _liked ? Icons.favorite : Icons.favorite_border,
+                  color: _liked ? Colors.red : null,
+                ),
+                onPressed: _busy ? null : _like,
+              ),
+            ),
           ],
         ),
       ),

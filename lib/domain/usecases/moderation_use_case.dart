@@ -8,4 +8,8 @@ class ModerationUseCase {
   Future<void> reportUser({required String userId, String? reason}) {
     return _repository.flagUser(userId: userId, reason: reason);
   }
+
+  Future<void> reportPost({required String postId, String? reason}) {
+    return _repository.flagPost(postId: postId, reason: reason);
+  }
 }

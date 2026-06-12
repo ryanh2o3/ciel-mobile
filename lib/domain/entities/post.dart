@@ -19,6 +19,9 @@ class Post {
     this.ownerAvatarUrl,
     this.caption,
     this.primaryMedia,
+    this.likeCount,
+    this.commentCount,
+    this.likedByViewer,
   });
 
   final String id;
@@ -31,6 +34,9 @@ class Post {
   final PostVisibility visibility;
   final DateTime createdAt;
   final Media? primaryMedia;
+  final int? likeCount;
+  final int? commentCount;
+  final bool? likedByViewer;
 
   String? get primaryMediaId => mediaIds.isEmpty ? null : mediaIds.first;
 }

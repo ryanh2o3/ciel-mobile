@@ -20,4 +20,18 @@ class ModerationRepositoryImpl implements ModerationRepository {
       throw mapDioException(e);
     }
   }
+
+  @override
+  Future<void> flagPost({required String postId, String? reason}) async {
+    try {
+      await _dio.post<void>(
+        '/moderation/posts/$postId/flag',
+        data: <String, dynamic>{
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+        },
+      );
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
 }

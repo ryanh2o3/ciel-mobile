@@ -70,21 +70,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             postId: widget.postId,
             limit: 50,
           );
-      final likes = await ref
-          .read(postUseCaseProvider)
-          .fetchLikes(
-            postId: widget.postId,
-            limit: 200,
-          );
-      final me = ref.read(authNotifierProvider).user;
-      final liked = me != null && likes.items.any((l) => l.userId == me.id);
+      final liked = post.likedByViewer ?? false;
+      final likeCount = post.likeCount ?? 0;
       if (mounted) {
         setState(() {
           _post = post;
           _media = mediaList;
           _comments = comments.items;
           _isLiked = liked;
-          _likeCount = likes.items.length;
+          _likeCount = likeCount;
           _loading = false;
         });
       }
@@ -167,22 +161,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     }
   }
 
-  Future<void> _reportPostOwner() async {
-    final post = _post;
-    if (post == null) {
-      return;
-    }
+  Future<void> _reportPost() async {
     final reason = await showReportUserSheet(context);
     if (reason == null) {
       return;
     }
-    final fullReason = reason.isEmpty
-        ? 'Reported post ${post.id}'
-        : '$reason (post ${post.id})';
     try {
-      await ref.read(moderationUseCaseProvider).reportUser(
-            userId: post.ownerId,
-            reason: fullReason,
+      await ref.read(moderationUseCaseProvider).reportPost(
+            postId: widget.postId,
+            reason: reason.isEmpty ? null : reason,
           );
       if (mounted) {
         showSuccessSnackBar(context, 'Report submitted');
@@ -263,7 +250,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'report') {
-                  await _reportPostOwner();
+                  await _reportPost();
                 }
               },
               itemBuilder: (context) => const [
@@ -314,7 +301,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   ),
                   onPressed: _likedBusy ? null : _toggleLike,
                 ),
-                Text('$_likeCount likes · ${_comments.length} comments'),
+                Text(
+                  '$_likeCount likes · '
+                  '${_post?.commentCount ?? _comments.length} comments',
+                ),
               ],
             ),
           ),

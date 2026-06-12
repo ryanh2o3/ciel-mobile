@@ -35,4 +35,15 @@ void main() {
       () => moderationRepo.flagUser(userId: 'u1', reason: 'spam'),
     ).called(1);
   });
+
+  test('ModerationUseCase reportPost delegates to repository', () async {
+    when(
+      () => moderationRepo.flagPost(postId: 'p1', reason: 'spam'),
+    ).thenAnswer((_) async {});
+    final useCase = ModerationUseCase(moderationRepo);
+    await useCase.reportPost(postId: 'p1', reason: 'spam');
+    verify(
+      () => moderationRepo.flagPost(postId: 'p1', reason: 'spam'),
+    ).called(1);
+  });
 }

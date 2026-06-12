@@ -32,6 +32,9 @@ class PostDto {
     this.ownerAvatarUrl,
     this.caption,
     this.primaryMedia,
+    this.likeCount,
+    this.commentCount,
+    this.likedByViewer,
   });
 
   factory PostDto.fromJson(Map<String, dynamic> json) {
@@ -51,6 +54,9 @@ class PostDto {
       primaryMedia: primaryMediaJson is Map<String, dynamic>
           ? MediaDto.fromJson(primaryMediaJson).toDomain()
           : null,
+      likeCount: (json['like_count'] as num?)?.toInt(),
+      commentCount: (json['comment_count'] as num?)?.toInt(),
+      likedByViewer: json['liked_by_viewer'] as bool?,
     );
   }
 
@@ -64,6 +70,9 @@ class PostDto {
   final String visibility;
   final DateTime createdAt;
   final Media? primaryMedia;
+  final int? likeCount;
+  final int? commentCount;
+  final bool? likedByViewer;
 
   Post toDomain() {
     return Post(
@@ -77,6 +86,9 @@ class PostDto {
       visibility: _postVisibility(visibility),
       createdAt: createdAt,
       primaryMedia: primaryMedia,
+      likeCount: likeCount,
+      commentCount: commentCount,
+      likedByViewer: likedByViewer,
     );
   }
 }

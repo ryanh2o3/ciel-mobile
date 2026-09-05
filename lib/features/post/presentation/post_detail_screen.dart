@@ -8,8 +8,10 @@ import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
 import 'package:ciel_mobile/ui/report_user_sheet.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -270,12 +272,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       body: ListView(
         children: [
           ListTile(
-            leading: CircleAvatar(
-              child: ClipOval(
-                child: CielNetworkImage(
-                  imageUrl: post.ownerAvatarUrl,
-                ),
-              ),
+            leading: CielAvatar(
+              imageUrl: post.ownerAvatarUrl,
+              size: CielAvatarSize.sm,
+              label: post.ownerDisplayName ?? post.ownerHandle,
             ),
             title: Text(post.ownerDisplayName ?? post.ownerHandle ?? ''),
             subtitle: Text('@${post.ownerHandle ?? ''}'),

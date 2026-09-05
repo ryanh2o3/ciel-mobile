@@ -8,8 +8,10 @@ import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/relationship.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
 import 'package:ciel_mobile/ui/report_user_sheet.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +32,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Relationship? _rel;
   List<Post> _posts = [];
   bool _loading = true;
+  bool _refreshing = false;
+  bool _avatarUploading = false;
   String? _error;
   String? _resolvedId;
 
@@ -45,11 +49,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
   }
 
-  Future<void> _load(String id) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load(String id, {bool soft = false}) async {
+    if (soft && _user != null) {
+      setState(() {
+        _refreshing = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final user = await ref.read(userUseCaseProvider).fetchUser(id);
       Relationship? rel;
@@ -69,12 +80,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _rel = rel;
           _posts = page.items;
           _loading = false;
+          _refreshing = false;
         });
       }
     } on Object catch (e) {
       if (mounted) {
         setState(() {
           _loading = false;
+          _refreshing = false;
           _error = e.toString();
         });
       }
@@ -93,7 +106,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } else {
         await ref.read(userUseCaseProvider).follow(u.id);
       }
-      await _load(u.id);
+      await _load(u.id, soft: true);
     } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(context, e);
@@ -142,7 +155,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           showSuccessSnackBar(context, 'User blocked');
         }
       }
-      await _load(u.id);
+      await _load(u.id, soft: true);
     } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(context, e);
@@ -175,34 +188,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _changeAvatar() async {
     final me = ref.read(authNotifierProvider).user;
-    if (me == null) {
+    if (me == null || _avatarUploading) {
       return;
     }
     final file = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (file == null) {
       return;
     }
+    setState(() => _avatarUploading = true);
     try {
       final normalized = await ImageNormalizer.normalizeExifOrientation(
         File(file.path),
       );
       final bytes = await normalized.readAsBytes();
-      final mediaId = await ref
+      final thumbKey = await ref
           .read(mediaUseCaseProvider)
-          .uploadImageAndWaitForMediaId(
+          .uploadImageAndWaitForThumbKey(
             data: bytes,
           );
       await ref
           .read(userUseCaseProvider)
           .updateProfile(
             id: me.id,
-            avatarKey: mediaId,
+            avatarKey: thumbKey,
           );
-      await _load(me.id);
+      await _load(me.id, soft: true);
       unawaited(ref.read(authNotifierProvider.notifier).restoreSession());
     } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(context, e);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _avatarUploading = false);
       }
     }
   }
@@ -217,15 +235,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    if (_error != null || _user == null) {
+    if (_error != null && _user == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Profile')),
-        body: Center(child: Text(_error ?? 'Not signed in')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(CielSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error ?? 'Not signed in', textAlign: TextAlign.center),
+                const SizedBox(height: CielSpacing.md),
+                if (_resolvedId != null)
+                  FilledButton(
+                    onPressed: () => unawaited(_load(_resolvedId!)),
+                    child: const Text('Retry'),
+                  ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     final u = _user!;
     final rel = _rel;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -259,78 +294,186 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: isSelf ? _changeAvatar : null,
-                    child: CircleAvatar(
-                      radius: 40,
-                      child: ClipOval(
-                        child: CielNetworkImage(
-                          imageUrl: u.avatarUrl,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Column(
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => _load(u.id, soft: true),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(CielSpacing.md),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '@${u.handle}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text(
-                          '${u.postsCount} posts · '
-                          '${u.followersCount} followers · '
-                          '${u.followingCount} following',
-                        ),
-                        if (!isSelf && rel != null) ...[
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: rel.isBlockedBy ? null : _toggleFollow,
-                            child: Text(
-                              rel.isFollowing ? 'Unfollow' : 'Follow',
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            CielAvatar(
+                              imageUrl: u.avatarUrl,
+                              size: CielAvatarSize.xl,
+                              label: u.displayName,
+                              onTap: isSelf ? _changeAvatar : null,
                             ),
+                            if (isSelf)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Material(
+                                  color: scheme.primary,
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: _avatarUploading
+                                        ? null
+                                        : _changeAvatar,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        size: 16,
+                                        color: scheme.onPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: CielSpacing.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '@${u.handle}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: CielSpacing.sm),
+                              Row(
+                                children: [
+                                  _StatChip(
+                                    label: 'posts',
+                                    value: u.postsCount,
+                                  ),
+                                  const SizedBox(width: CielSpacing.md),
+                                  _StatChip(
+                                    label: 'followers',
+                                    value: u.followersCount,
+                                  ),
+                                  const SizedBox(width: CielSpacing.md),
+                                  _StatChip(
+                                    label: 'following',
+                                    value: u.followingCount,
+                                  ),
+                                ],
+                              ),
+                              if (u.bio != null && u.bio!.isNotEmpty) ...[
+                                const SizedBox(height: CielSpacing.sm),
+                                Text(u.bio!),
+                              ],
+                              if (!isSelf && rel != null) ...[
+                                const SizedBox(height: CielSpacing.md),
+                                FilledButton(
+                                  onPressed:
+                                      rel.isBlockedBy ? null : _toggleFollow,
+                                  child: Text(
+                                    rel.isFollowing ? 'Unfollow' : 'Follow',
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                ],
+                ),
+                if (_posts.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(CielSpacing.lg),
+                        child: Text(
+                          isSelf
+                              ? 'No posts yet. Share your first photo.'
+                              : 'No posts yet',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 2,
+                      crossAxisSpacing: 2,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final post = _posts[index];
+                        final thumbUrl = post.primaryMedia?.mediumUrl ??
+                            post.primaryMedia?.thumbUrl;
+                        return GestureDetector(
+                          onTap: () => context.push('/post/${post.id}'),
+                          child: CielNetworkImage(imageUrl: thumbUrl),
+                        );
+                      },
+                      childCount: _posts.length,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_avatarUploading || _refreshing)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: scheme.surface.withValues(alpha: 0),
               ),
             ),
-          ),
-          SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 2,
-              crossAxisSpacing: 2,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final post = _posts[index];
-                final thumbUrl =
-                    post.primaryMedia?.mediumUrl ?? post.primaryMedia?.thumbUrl;
-                return GestureDetector(
-                  onTap: () => context.push('/post/${post.id}'),
-                  child: CielNetworkImage(
-                    imageUrl: thumbUrl,
-                  ),
-                );
-              },
-              childCount: _posts.length,
-            ),
-          ),
+          if (_avatarUploading)
+            const ModalBarrier(dismissible: false, color: Colors.black26),
+          if (_avatarUploading)
+            const Center(child: CircularProgressIndicator()),
         ],
       ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          '$value',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

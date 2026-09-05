@@ -2,7 +2,8 @@ import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/domain/entities/user.dart';
-import 'package:ciel_mobile/ui/ciel_network_image.dart';
+import 'package:ciel_mobile/ui/ciel_avatar.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -96,12 +97,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   itemBuilder: (context, i) {
                     final u = _users[i];
                     return ListTile(
-                      leading: CircleAvatar(
-                        child: ClipOval(
-                          child: CielNetworkImage(
-                            imageUrl: u.avatarUrl,
-                          ),
-                        ),
+                      leading: CielAvatar(
+                        imageUrl: u.avatarUrl,
+                        size: CielAvatarSize.sm,
+                        label: u.displayName,
                       ),
                       title: Text(u.displayName),
                       subtitle: Text('@${u.handle}'),

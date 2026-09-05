@@ -24,6 +24,22 @@ abstract final class AppTheme {
       colorScheme: scheme,
       splashFactory: InkSparkle.splashFactory,
       visualDensity: VisualDensity.standard,
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: scheme.surface,
+        margin: EdgeInsets.zero,
+        shape: const RoundedRectangleBorder(),
+        clipBehavior: Clip.antiAlias,
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: 0.4),
+        thickness: 1,
+        space: 1,
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: CielSpacing.md),
+        visualDensity: VisualDensity.compact,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         border: OutlineInputBorder(
@@ -36,6 +52,7 @@ abstract final class AppTheme {
       ),
       appBarTheme: AppBarTheme(
         centerTitle: false,
+        elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,

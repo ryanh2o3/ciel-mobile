@@ -95,6 +95,7 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null) Text(_error!),

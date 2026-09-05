@@ -5,6 +5,7 @@ import 'package:ciel_mobile/core/errors/app_failure_mapper.dart';
 import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/app_notification.dart';
 import 'package:ciel_mobile/features/notifications/notification_message.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final List<AppNotification> _items = [];
   String? _cursor;
   bool _loading = false;
+  bool _initial = true;
   String? _error;
 
   @override
@@ -52,10 +54,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         _items.addAll(page.items);
         _cursor = page.nextCursor;
         _loading = false;
+        _initial = false;
       });
     } on Object catch (e) {
       setState(() {
         _loading = false;
+        _initial = false;
         _error = mapToFailure(e).userMessage;
       });
     }
@@ -79,41 +83,109 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
-      body: RefreshIndicator(
-        onRefresh: () => _fetch(refresh: true),
-        child: _error != null && _items.isEmpty
-            ? ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_error!),
-                  ),
-                ],
-              )
-            : ListView.builder(
-                itemCount: _items.length,
-                itemBuilder: (context, i) {
-                  final n = _items[i];
-                  return ListTile(
-                    title: Text(notificationMessage(n)),
-                    subtitle: Text(
-                      _formatWhen(n.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    trailing: n.readAt == null
-                        ? Icon(
-                            Icons.circle,
-                            size: 10,
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        : null,
-                    onTap: () => _open(n),
-                  );
-                },
-              ),
-      ),
+      body: _initial && _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () => _fetch(refresh: true),
+              child: _error != null && _items.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.4,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(CielSpacing.lg),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _error!,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: scheme.error),
+                                  ),
+                                  const SizedBox(height: CielSpacing.md),
+                                  OutlinedButton(
+                                    onPressed: () => _fetch(refresh: true),
+                                    child: const Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _items.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.5,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(CielSpacing.lg),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.notifications_none,
+                                        size: 48,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(height: CielSpacing.md),
+                                      Text(
+                                        'You’re all caught up',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
+                                      ),
+                                      const SizedBox(height: CielSpacing.sm),
+                                      Text(
+                                        'Likes, comments, and follows will '
+                                        'show up here.',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _items.length,
+                          itemBuilder: (context, i) {
+                            final n = _items[i];
+                            return ListTile(
+                              title: Text(notificationMessage(n)),
+                              subtitle: Text(
+                                _formatWhen(n.createdAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              trailing: n.readAt == null
+                                  ? Icon(
+                                      Icons.circle,
+                                      size: 10,
+                                      color: scheme.primary,
+                                    )
+                                  : null,
+                              onTap: () => _open(n),
+                            );
+                          },
+                        ),
+            ),
     );
   }
 

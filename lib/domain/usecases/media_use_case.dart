@@ -88,4 +88,22 @@ class MediaUseCase {
     }
     throw StateError('Media processing timeout');
   }
+
+  /// Upload image bytes, wait for processing, and return the S3 thumb key.
+  ///
+  /// Use this for profile avatars — the API expects an object key, not a
+  /// media UUID.
+  Future<String> uploadImageAndWaitForThumbKey({
+    required List<int> data,
+    String contentType = 'image/jpeg',
+    void Function(MediaUploadProgress progress)? onProgress,
+  }) async {
+    final mediaId = await uploadImageAndWaitForMediaId(
+      data: data,
+      contentType: contentType,
+      onProgress: onProgress,
+    );
+    final media = await fetchMedia(mediaId);
+    return media.thumbKey;
+  }
 }

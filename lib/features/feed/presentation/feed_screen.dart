@@ -8,7 +8,11 @@ import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/feed/presentation/feed_state.dart';
+import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -72,10 +76,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
+  Future<void> _refresh() {
+    final user = ref.read(authNotifierProvider).user;
+    return ref.read(feedNotifierProvider.notifier).refresh(user);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authNotifierProvider);
-    final state = ref.watch(feedNotifierProvider);
+    final feed = ref.watch(feedNotifierProvider);
+    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
+    final slivers = _feedSlivers(context, auth, feed);
 
     return Scaffold(
       appBar: AppBar(
@@ -87,71 +98,156 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(feedNotifierProvider.notifier).refresh(auth.user),
-        child: CustomScrollView(
-          controller: _scroll,
-          slivers: [
-            if (state.loading && state.posts.isEmpty)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else ...[
-              SliverToBoxAdapter(
-                child: _StoryStrip(
-                  myGroup: state.myStoryGroup,
-                  groups: state.storyGroups,
-                  onAddStory: () => context.push('/stories/create'),
-                  onOpenStory: (stories, index) {
-                    unawaited(
-                      context.push(
-                        '/stories/view',
-                        extra: StoryViewerExtra(
-                          stories: stories,
-                          initialIndex: index,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+      body: isIos
+          ? CustomScrollView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-              if (state.error != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      state.error!.userMessage,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
+              slivers: [
+                CupertinoSliverRefreshControl(onRefresh: _refresh),
+                ...slivers,
+              ],
+            )
+          : RefreshIndicator(
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                controller: _scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: slivers,
+              ),
+            ),
+    );
+  }
+
+  List<Widget> _feedSlivers(
+    BuildContext context,
+    AuthState auth,
+    FeedState feed,
+  ) {
+    return [
+      if (feed.loading && feed.posts.isEmpty)
+        const SliverFillRemaining(
+          child: Center(child: CircularProgressIndicator()),
+        )
+      else ...[
+        SliverToBoxAdapter(
+          child: _StoryStrip(
+            myGroup: feed.myStoryGroup,
+            groups: feed.storyGroups,
+            currentUserAvatarUrl: auth.user?.avatarUrl,
+            currentUserLabel: auth.user?.displayName ?? auth.user?.handle,
+            onAddStory: () => context.push('/stories/create'),
+            onOpenStory: (stories, index) {
+              unawaited(
+                context.push(
+                  '/stories/view',
+                  extra: StoryViewerExtra(
+                    stories: stories,
+                    initialIndex: index,
                   ),
                 ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = state.posts[index];
-                    return _PostTile(
-                      item: item,
-                      onOpen: () => context.push('/post/${item.post.id}'),
-                      onOpenProfile: () =>
-                          context.push('/profile/${item.post.ownerId}'),
-                    );
-                  },
-                  childCount: state.posts.length,
-                ),
-              ),
-              if (state.loadingMore)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ),
-            ],
-          ],
+              );
+            },
+          ),
         ),
+        if (feed.error != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(CielSpacing.md),
+              child: Column(
+                children: [
+                  Text(
+                    feed.error!.userMessage,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: CielSpacing.sm),
+                  OutlinedButton(
+                    onPressed: _refresh,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (!feed.loading && feed.posts.isEmpty && feed.error == null)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _FeedEmpty(),
+          )
+        else
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = feed.posts[index];
+                return PostCard(
+                  item: item,
+                  onOpen: () => context.push('/post/${item.post.id}'),
+                  onOpenProfile: () =>
+                      context.push('/profile/${item.post.ownerId}'),
+                  onOpenComments: () => context.push('/post/${item.post.id}'),
+                );
+              },
+              childCount: feed.posts.length,
+            ),
+          ),
+        if (feed.loadingMore)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(CielSpacing.md),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+      ],
+    ];
+  }
+}
+
+class _FeedEmpty extends StatelessWidget {
+  const _FeedEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(CielSpacing.lg),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.photo_outlined, size: 48, color: scheme.onSurfaceVariant),
+          const SizedBox(height: CielSpacing.md),
+          Text(
+            'Your feed is empty',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: CielSpacing.sm),
+          Text(
+            'Follow people or share a photo to get started.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: CielSpacing.lg),
+          Wrap(
+            spacing: CielSpacing.sm,
+            runSpacing: CielSpacing.sm,
+            alignment: WrapAlignment.center,
+            children: [
+              FilledButton(
+                onPressed: () => context.push('/search'),
+                child: const Text('Find people'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/create'),
+                child: const Text('Create post'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -163,10 +259,14 @@ class _StoryStrip extends StatelessWidget {
     required this.groups,
     required this.onAddStory,
     required this.onOpenStory,
+    this.currentUserAvatarUrl,
+    this.currentUserLabel,
   });
 
   final UserStoryGroup? myGroup;
   final List<UserStoryGroup> groups;
+  final String? currentUserAvatarUrl;
+  final String? currentUserLabel;
   final VoidCallback onAddStory;
   final void Function(List<Story> stories, int initialIndex) onOpenStory;
 
@@ -176,10 +276,15 @@ class _StoryStrip extends StatelessWidget {
       height: 112,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: CielSpacing.md - 4,
+          vertical: CielSpacing.sm,
+        ),
         children: [
           _MyStoryChip(
             myGroup: myGroup,
+            avatarUrl: currentUserAvatarUrl ?? myGroup?.userAvatarUrl,
+            label: currentUserLabel ?? 'You',
             onAddStory: onAddStory,
             onOpenStory: onOpenStory,
           ),
@@ -202,9 +307,13 @@ class _MyStoryChip extends StatelessWidget {
     required this.myGroup,
     required this.onAddStory,
     required this.onOpenStory,
+    this.avatarUrl,
+    this.label,
   });
 
   final UserStoryGroup? myGroup;
+  final String? avatarUrl;
+  final String? label;
   final VoidCallback onAddStory;
   final void Function(List<Story> stories, int initialIndex) onOpenStory;
 
@@ -213,71 +322,51 @@ class _MyStoryChip extends StatelessWidget {
     final group = myGroup;
     final stories = group?.stories ?? const <Story>[];
     final hasStories = stories.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
 
-    final borderColor = hasStories && (group?.hasUnseenStories ?? false)
-        ? Theme.of(context).colorScheme.primary
-        : Colors.grey.shade400;
+    final ring = !hasStories
+        ? CielStoryRingStyle.none
+        : (group?.hasUnseenStories ?? false)
+            ? CielStoryRingStyle.unseen
+            : CielStoryRingStyle.seen;
 
-    final latest = hasStories
-        ? stories.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
-        : null;
-
-    final latestThumbUrl = latest?.media?.mediumUrl ?? latest?.media?.thumbUrl;
+    // Prefer own avatar; fall back to latest story thumb only if no avatar.
+    var imageUrl = avatarUrl;
+    if ((imageUrl == null || imageUrl.isEmpty) && hasStories) {
+      final latest = stories.reduce(
+        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+      );
+      imageUrl = latest.media?.mediumUrl ?? latest.media?.thumbUrl;
+    }
 
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: CielSpacing.md - 4),
       child: Column(
         children: [
-          Stack(
-            children: [
-              InkWell(
-                onTap: hasStories ? () => onOpenStory(stories, 0) : onAddStory,
-                borderRadius: BorderRadius.circular(40),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: borderColor, width: 2),
-                  ),
-                  child: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer,
-                    child: ClipOval(
-                      child: hasStories
-                          ? CielNetworkImage(imageUrl: latestThumbUrl)
-                          : Icon(
-                              Icons.add,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                            ),
-                    ),
+          CielAvatar(
+            imageUrl: imageUrl,
+            size: CielAvatarSize.lg,
+            label: label,
+            ring: ring,
+            onTap: hasStories ? () => onOpenStory(stories, 0) : onAddStory,
+            badge: Material(
+              color: scheme.primary,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onAddStory,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.add,
+                    size: 14,
+                    color: scheme.onPrimary,
                   ),
                 ),
               ),
-              if (hasStories)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: InkWell(
-                    onTap: onAddStory,
-                    customBorder: const CircleBorder(),
-                    child: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Icon(
-                        Icons.add,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: CielSpacing.xs),
           const SizedBox(
             width: 72,
             child: Text(
@@ -309,81 +398,111 @@ class _StoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = highlight
-        ? Theme.of(context).colorScheme.primary
-        : Colors.grey.shade400;
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(40),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: borderColor, width: 2),
-              ),
-              child: CircleAvatar(
-                radius: 30,
-                child: ClipOval(
-                  child: CielNetworkImage(
-                    imageUrl: imageUrl,
-                  ),
-                ),
-              ),
+      padding: const EdgeInsets.only(right: CielSpacing.md - 4),
+      child: Column(
+        children: [
+          CielAvatar(
+            imageUrl: imageUrl,
+            size: CielAvatarSize.lg,
+            label: label,
+            ring: highlight
+                ? CielStoryRingStyle.unseen
+                : CielStoryRingStyle.seen,
+            onTap: onTap,
+          ),
+          const SizedBox(height: CielSpacing.xs),
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11),
             ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: 72,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PostTile extends ConsumerStatefulWidget {
-  const _PostTile({
+class PostCard extends ConsumerStatefulWidget {
+  const PostCard({
     required this.item,
     required this.onOpen,
     required this.onOpenProfile,
+    required this.onOpenComments,
+    super.key,
   });
 
   final PostWithMedia item;
   final VoidCallback onOpen;
   final VoidCallback onOpenProfile;
+  final VoidCallback onOpenComments;
 
   @override
-  ConsumerState<_PostTile> createState() => _PostTileState();
+  ConsumerState<PostCard> createState() => _PostCardState();
 }
 
-class _PostTileState extends ConsumerState<_PostTile> {
-  bool _liked = false;
+class _PostCardState extends ConsumerState<PostCard>
+    with SingleTickerProviderStateMixin {
+  late bool _liked;
+  late int _likeCount;
   bool _busy = false;
+  bool _showHeart = false;
+  late final AnimationController _heartAnim;
 
-  Future<void> _like() async {
-    if (_busy || _liked) {
+  @override
+  void initState() {
+    super.initState();
+    final post = widget.item.post;
+    _liked = post.likedByViewer ?? false;
+    _likeCount = post.likeCount ?? 0;
+    _heartAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.post.id != widget.item.post.id) {
+      _liked = widget.item.post.likedByViewer ?? false;
+      _likeCount = widget.item.post.likeCount ?? 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _heartAnim.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleLike() async {
+    if (_busy) {
       return;
     }
+    final wasLiked = _liked;
     setState(() {
       _busy = true;
-      _liked = true;
+      _liked = !wasLiked;
+      _likeCount += wasLiked ? -1 : 1;
     });
     try {
-      await ref.read(postUseCaseProvider).likePost(widget.item.post.id);
+      if (wasLiked) {
+        await ref.read(postUseCaseProvider).unlikePost(widget.item.post.id);
+      } else {
+        await ref.read(postUseCaseProvider).likePost(widget.item.post.id);
+      }
     } on Object catch (e) {
       if (mounted) {
-        setState(() => _liked = false);
+        setState(() {
+          _liked = wasLiked;
+          _likeCount += wasLiked ? 1 : -1;
+        });
         showErrorSnackBar(context, e);
       }
     } finally {
@@ -393,54 +512,122 @@ class _PostTileState extends ConsumerState<_PostTile> {
     }
   }
 
+  Future<void> _doubleTapLike() async {
+    setState(() => _showHeart = true);
+    _heartAnim.forward(from: 0);
+    if (!_liked) {
+      await _toggleLike();
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (mounted) {
+      setState(() => _showHeart = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final post = item.post;
     final thumb = item.primaryMedia?.mediumUrl ?? item.primaryMedia?.thumbUrl;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: widget.onOpen,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                child: ClipOval(
-                  child: CielNetworkImage(
-                    imageUrl: item.post.ownerAvatarUrl,
+    final name = post.ownerDisplayName ?? post.ownerHandle ?? '';
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: CielSpacing.md,
+          ),
+          leading: CielAvatar(
+            imageUrl: post.ownerAvatarUrl,
+            size: CielAvatarSize.sm,
+            label: name,
+            onTap: widget.onOpenProfile,
+          ),
+          title: Text(name),
+          subtitle: Text('@${post.ownerHandle ?? ''}'),
+          onTap: widget.onOpenProfile,
+        ),
+        GestureDetector(
+          onTap: widget.onOpen,
+          onDoubleTap: _doubleTapLike,
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CielNetworkImage(imageUrl: thumb),
+                if (_showHeart)
+                  Center(
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.6, end: 1.2).animate(
+                        CurvedAnimation(
+                          parent: _heartAnim,
+                          curve: Curves.easeOutBack,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Colors.white,
+                        size: 80,
+                        shadows: [
+                          Shadow(blurRadius: 12, color: Colors.black45),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              title: Text(
-                item.post.ownerDisplayName ?? item.post.ownerHandle ?? '',
-              ),
-              subtitle: Text('@${item.post.ownerHandle ?? ''}'),
-              onTap: widget.onOpenProfile,
+              ],
             ),
-            AspectRatio(
-              aspectRatio: 1,
-              child: CielNetworkImage(imageUrl: thumb),
+          ),
+        ),
+        if (post.caption != null && post.caption!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              CielSpacing.md,
+              CielSpacing.sm,
+              CielSpacing.md,
+              0,
             ),
-            if (item.post.caption != null && item.post.caption!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(item.post.caption!),
-              ),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 4),
-              child: IconButton(
+            child: Text(post.caption!),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(
+            left: CielSpacing.xs,
+            right: CielSpacing.md,
+            bottom: CielSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              IconButton(
                 icon: Icon(
                   _liked ? Icons.favorite : Icons.favorite_border,
                   color: _liked ? Colors.red : null,
                 ),
-                onPressed: _busy ? null : _like,
+                onPressed: _busy ? null : _toggleLike,
               ),
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline),
+                onPressed: widget.onOpenComments,
+              ),
+              if (_likeCount > 0 || (post.commentCount ?? 0) > 0)
+                Expanded(
+                  child: Text(
+                    [
+                      if (_likeCount > 0) '$_likeCount likes',
+                      if ((post.commentCount ?? 0) > 0)
+                        '${post.commentCount} comments',
+                    ].join(' · '),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
+        Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
+      ],
     );
   }
 }

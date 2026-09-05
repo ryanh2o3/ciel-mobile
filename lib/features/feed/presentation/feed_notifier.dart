@@ -141,7 +141,7 @@ class FeedNotifier extends Notifier<FeedState> {
   }
 
   Future<void> markStorySeen(String storyId) async {
-    final list = await _readSeenIdsList();
+    final list = List<String>.from(await _readSeenIdsList());
     if (!list.contains(storyId)) {
       list.add(storyId);
     }

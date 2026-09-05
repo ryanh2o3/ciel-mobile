@@ -13,3 +13,16 @@ abstract final class CielRadii {
   static const double lg = 12;
   static const double xl = 16;
 }
+
+/// Circular avatar diameters used across feed, profile, stories, search.
+abstract final class CielAvatarSize {
+  static const double sm = 36;
+  static const double md = 48;
+  static const double lg = 64;
+  static const double xl = 80;
+}
+
+abstract final class CielStoryRing {
+  static const double width = 2.5;
+  static const double gap = 2;
+}

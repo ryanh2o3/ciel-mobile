@@ -45,3 +45,12 @@ import_lint:
       target: "package:ciel_mobile/ui/**/*.dart"
       from: "package:ciel_mobile/domain/**"
       except: []
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**

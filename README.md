@@ -32,6 +32,12 @@ The script defaults to Flutter `3.47.2`, matching the local SDK used for this
 project. Set the workflow environment variable `FLUTTER_VERSION` to override it
 with another compatible Flutter tag.
 
+`pubspec.yaml` explicitly keeps native dependencies on CocoaPods. Flutter 3.47
+otherwise attempts SwiftPM migration during configuration, which fails in Xcode
+Cloud when newly added dependencies have no committed `Package.resolved`. A
+future SwiftPM migration should be prepared and verified locally, with its Xcode
+project changes and dependency lockfile committed together.
+
 If the build reports `/packages/flutter_tools/bin/xcode_backend.sh: No such file
 or directory`, verify that the post-clone step ran successfully. This indicates
 that `FLUTTER_ROOT` was not populated before the scheme pre-action. Keep

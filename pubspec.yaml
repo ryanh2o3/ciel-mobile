@@ -40,6 +40,9 @@ flutter_icons:
   adaptive_icon_foreground: assets/app_icon.png
 
 flutter:
+  # Keep the existing CocoaPods integration until SwiftPM migration is committed.
+  config:
+    enable-swift-package-manager: false
   uses-material-design: true
   assets:
     - assets/app_icon.png

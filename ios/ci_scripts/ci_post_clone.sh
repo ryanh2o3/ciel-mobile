@@ -20,8 +20,8 @@ if ! command -v pod >/dev/null 2>&1; then
   HOMEBREW_NO_AUTO_UPDATE=1 brew install cocoapods
 fi
 
-# Generate cloud-local Flutter settings and Swift package integration before
-# Runner's Prepare Flutter Framework pre-action reads FLUTTER_ROOT.
-flutter build ios --config-only --release --no-codesign
+# Generate cloud-local Flutter settings. pubspec.yaml keeps native plugins on
+# CocoaPods so this does not attempt a SwiftPM migration during CI.
+flutter build ios --config-only --release --no-codesign --no-pub
 cd ios
 pod install

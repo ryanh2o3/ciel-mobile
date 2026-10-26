@@ -21,6 +21,23 @@ cd ios && pod install
 
 Then open **`ios/Runner.xcworkspace`** in Xcode, or run **`flutter run`** from the app root (recommended — it runs the right steps).
 
+### iOS: Xcode Cloud
+
+The executable `ios/ci_scripts/ci_post_clone.sh` installs Flutter, fetches iOS
+artifacts and Dart dependencies, generates cloud-local Xcode settings, and
+installs CocoaPods dependencies before Xcode builds `Runner`. Commit this script
+and use `ios/Runner.xcworkspace` in the Xcode Cloud workflow.
+
+The script defaults to Flutter `3.47.2`, matching the local SDK used for this
+project. Set the workflow environment variable `FLUTTER_VERSION` to override it
+with another compatible Flutter tag.
+
+If the build reports `/packages/flutter_tools/bin/xcode_backend.sh: No such file
+or directory`, verify that the post-clone step ran successfully. This indicates
+that `FLUTTER_ROOT` was not populated before the scheme pre-action. Keep
+`Generated.xcconfig` ignored: it must be generated on the cloud machine, since
+the local copy contains machine-specific paths.
+
 ### iOS: `Flutter.xcframework must exist` (post-install hook failed)
 
 That means the iOS engine cache is missing. From the app root:

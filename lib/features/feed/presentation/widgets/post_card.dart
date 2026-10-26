@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/post_with_media.dart';
+import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/post/presentation/post_share_service.dart';
 import 'package:ciel_mobile/features/post/presentation/widgets/likers_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_media_carousel.dart';
@@ -17,11 +19,13 @@ class PostCard extends ConsumerStatefulWidget {
     required this.onOpen,
     required this.onOpenProfile,
     required this.onOpenComments,
+    this.onOpenAtIndex,
     super.key,
   });
 
   final PostWithMedia item;
   final VoidCallback onOpen;
+  final ValueChanged<int>? onOpenAtIndex;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenComments;
 
@@ -55,6 +59,10 @@ class _PostCardState extends ConsumerState<PostCard>
     if (oldWidget.item.post.id != widget.item.post.id) {
       _liked = widget.item.post.likedByViewer ?? false;
       _likeCount = widget.item.post.likeCount ?? 0;
+    } else if (oldWidget.item.post.likeCount != widget.item.post.likeCount ||
+        oldWidget.item.post.likedByViewer != widget.item.post.likedByViewer) {
+      _liked = widget.item.post.likedByViewer ?? false;
+      _likeCount = widget.item.post.likeCount ?? 0;
     }
   }
 
@@ -74,6 +82,13 @@ class _PostCardState extends ConsumerState<PostCard>
       _liked = !wasLiked;
       _likeCount += wasLiked ? -1 : 1;
     });
+    ref
+        .read(feedNotifierProvider.notifier)
+        .updatePostEngagement(
+          postId: widget.item.post.id,
+          likedByViewer: !wasLiked,
+          likeCount: _likeCount,
+        );
     try {
       if (wasLiked) {
         await ref.read(postUseCaseProvider).unlikePost(widget.item.post.id);
@@ -86,6 +101,13 @@ class _PostCardState extends ConsumerState<PostCard>
           _liked = wasLiked;
           _likeCount += wasLiked ? 1 : -1;
         });
+        ref
+            .read(feedNotifierProvider.notifier)
+            .updatePostEngagement(
+              postId: widget.item.post.id,
+              likedByViewer: wasLiked,
+              likeCount: _likeCount,
+            );
         showErrorSnackBar(context, e);
       }
     } finally {
@@ -97,7 +119,7 @@ class _PostCardState extends ConsumerState<PostCard>
 
   Future<void> _doubleTapLike() async {
     setState(() => _showHeart = true);
-    unawaited(_heartAnim.forward(from: 0));
+    _heartAnim.forward(from: 0);
     if (!_liked) {
       await _toggleLike();
     }
@@ -109,6 +131,17 @@ class _PostCardState extends ConsumerState<PostCard>
 
   Future<void> _openLikers() async {
     await showLikersSheet(context, postId: widget.item.post.id);
+  }
+
+  Future<void> _share(BuildContext anchorContext) async {
+    try {
+      await PostShareService.share(
+        widget.item.post,
+        sharePositionOrigin: PostShareService.originFrom(anchorContext),
+      );
+    } on Object catch (error) {
+      if (mounted) showErrorSnackBar(context, error);
+    }
   }
 
   @override
@@ -160,8 +193,17 @@ class _PostCardState extends ConsumerState<PostCard>
           ),
         ),
         CielMediaCarousel(
+          key: ValueKey(post.id),
           mediaItems: item.mediaItems,
-          onTap: widget.onOpen,
+          heroTagPrefix: 'post:${post.id}:media',
+          onTapPage: (index) {
+            final onOpenAtIndex = widget.onOpenAtIndex;
+            if (onOpenAtIndex != null) {
+              onOpenAtIndex(index);
+            } else {
+              widget.onOpen();
+            }
+          },
           onDoubleTap: _doubleTapLike,
           overlay: _showHeart
               ? Center(
@@ -192,6 +234,7 @@ class _PostCardState extends ConsumerState<PostCard>
           child: Row(
             children: [
               IconButton(
+                tooltip: _liked ? 'Unlike post' : 'Like post',
                 icon: Icon(
                   _liked ? Icons.favorite : Icons.favorite_border,
                   color: _liked ? Colors.red : null,
@@ -199,8 +242,16 @@ class _PostCardState extends ConsumerState<PostCard>
                 onPressed: _busy ? null : _toggleLike,
               ),
               IconButton(
+                tooltip: 'Open comments',
                 icon: const Icon(Icons.chat_bubble_outline),
                 onPressed: widget.onOpenComments,
+              ),
+              Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'Share post',
+                  icon: const Icon(Icons.share_outlined),
+                  onPressed: () => _share(context),
+                ),
               ),
             ],
           ),
@@ -245,26 +296,25 @@ class _PostCardState extends ConsumerState<PostCard>
               ),
             ),
           ),
-        if ((post.commentCount ?? 0) > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              CielSpacing.md,
-              0,
-              CielSpacing.md,
-              CielSpacing.sm,
-            ),
-            child: GestureDetector(
-              onTap: widget.onOpenComments,
-              child: Text(
-                'View all ${post.commentCount} comments',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            CielSpacing.md,
+            0,
+            CielSpacing.md,
+            CielSpacing.sm,
+          ),
+          child: GestureDetector(
+            onTap: widget.onOpenComments,
+            child: Text(
+              (post.commentCount ?? 0) > 0
+                  ? 'View all ${post.commentCount} comments'
+                  : 'Be the first to comment',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-          )
-        else
-          const SizedBox(height: CielSpacing.sm),
+          ),
+        ),
         Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
       ],
     );

@@ -39,4 +39,26 @@ class Post {
   final bool? likedByViewer;
 
   String? get primaryMediaId => mediaIds.isEmpty ? null : mediaIds.first;
+
+  Post copyWithEngagement({
+    int? likeCount,
+    int? commentCount,
+    bool? likedByViewer,
+  }) {
+    return Post(
+      id: id,
+      ownerId: ownerId,
+      mediaIds: mediaIds,
+      visibility: visibility,
+      createdAt: createdAt,
+      ownerHandle: ownerHandle,
+      ownerDisplayName: ownerDisplayName,
+      ownerAvatarUrl: ownerAvatarUrl,
+      caption: caption,
+      primaryMedia: primaryMedia,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      likedByViewer: likedByViewer ?? this.likedByViewer,
+    );
+  }
 }

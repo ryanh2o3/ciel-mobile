@@ -9,14 +9,20 @@ class CielMediaCarousel extends StatefulWidget {
     required this.mediaItems,
     super.key,
     this.onTap,
+    this.onTapPage,
     this.onDoubleTap,
     this.overlay,
+    this.heroTagPrefix,
+    this.initialPage = 0,
   });
 
   final List<Media> mediaItems;
   final VoidCallback? onTap;
+  final ValueChanged<int>? onTapPage;
   final VoidCallback? onDoubleTap;
   final Widget? overlay;
+  final String? heroTagPrefix;
+  final int initialPage;
 
   @override
   State<CielMediaCarousel> createState() => _CielMediaCarouselState();
@@ -29,7 +35,17 @@ class _CielMediaCarouselState extends State<CielMediaCarousel> {
   @override
   void initState() {
     super.initState();
-    _page = PageController();
+    _index = widget.initialPage;
+    _page = PageController(initialPage: widget.initialPage);
+  }
+
+  void _handleTap() {
+    final onTapPage = widget.onTapPage;
+    if (onTapPage != null) {
+      onTapPage(_index);
+    } else {
+      widget.onTap?.call();
+    }
   }
 
   @override
@@ -49,10 +65,14 @@ class _CielMediaCarouselState extends State<CielMediaCarousel> {
     }
 
     final multi = items.length > 1;
+    final first = items.first;
+    final mediaRatio = first.height == 0
+        ? 1.0
+        : (first.width / first.height).clamp(0.8, 1.91);
     return AspectRatio(
-      aspectRatio: 1,
+      aspectRatio: mediaRatio,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: _handleTap,
         onDoubleTap: widget.onDoubleTap,
         child: Stack(
           fit: StackFit.expand,
@@ -63,9 +83,16 @@ class _CielMediaCarouselState extends State<CielMediaCarousel> {
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) {
                 final m = items[i];
-                return CielNetworkImage(
+                final image = CielNetworkImage(
                   imageUrl: m.mediumUrl ?? m.thumbUrl,
                 );
+                final prefix = widget.heroTagPrefix;
+                return prefix == null
+                    ? image
+                    : Hero(
+                        tag: '$prefix:$i',
+                        child: image,
+                      );
               },
             ),
             if (widget.overlay != null) widget.overlay!,
@@ -83,12 +110,16 @@ class _CielMediaCarouselState extends State<CielMediaCarousel> {
                       horizontal: CielSpacing.sm,
                       vertical: CielSpacing.xs,
                     ),
-                    child: Text(
-                      '${_index + 1}/${items.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    child: Semantics(
+                      liveRegion: true,
+                      label: 'Photo ${_index + 1} of ${items.length}',
+                      child: Text(
+                        '${_index + 1}/${items.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

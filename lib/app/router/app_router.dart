@@ -19,6 +19,7 @@ import 'package:ciel_mobile/features/shell/presentation/main_shell_screen.dart';
 import 'package:ciel_mobile/features/shell/presentation/splash_screen.dart';
 import 'package:ciel_mobile/features/stories/presentation/create_story_screen.dart';
 import 'package:ciel_mobile/features/stories/presentation/story_viewer_screen.dart';
+import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -114,9 +115,44 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/post/:postId',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['postId']!;
-          return PostDetailScreen(postId: id);
+          final initialMediaIndex = state.extra is int
+              ? state.extra! as int
+              : 0;
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            child: PostDetailScreen(
+              postId: id,
+              initialMediaIndex: initialMediaIndex,
+            ),
+            transitionDuration: CielDurations.normal,
+            reverseTransitionDuration: CielDurations.fast,
+            transitionsBuilder:
+                (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  if (MediaQuery.of(context).disableAnimations) return child;
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.025),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
+          );
         },
       ),
       GoRoute(

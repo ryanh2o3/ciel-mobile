@@ -194,9 +194,9 @@ class FeedNotifier extends Notifier<FeedState> {
   Future<List<PostWithMedia>> _loadMediaForPosts(List<Post> posts) async {
     final futures = posts.map((post) async {
       final mediaFutures = post.mediaIds.map(_getMediaBestEffort).toList();
-      final mediaItems = (await Future.wait(mediaFutures))
-          .whereType<Media>()
-          .toList(growable: false);
+      final mediaItems = (await Future.wait(
+        mediaFutures,
+      )).whereType<Media>().toList(growable: false);
       return PostWithMedia(post: post, mediaItems: mediaItems);
     }).toList();
     return Future.wait(futures);
@@ -237,6 +237,46 @@ class FeedNotifier extends Notifier<FeedState> {
   void removePost(String postId) {
     state = state.copyWith(
       posts: state.posts.where((p) => p.post.id != postId).toList(),
+    );
+  }
+
+  void updatePostEngagement({
+    required String postId,
+    int? likeCount,
+    int? commentCount,
+    bool? likedByViewer,
+  }) {
+    state = state.copyWith(
+      posts: state.posts
+          .map((item) {
+            if (item.post.id != postId) return item;
+            return PostWithMedia(
+              post: item.post.copyWithEngagement(
+                likeCount: likeCount,
+                commentCount: commentCount,
+                likedByViewer: likedByViewer,
+              ),
+              mediaItems: item.mediaItems,
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  void changeCommentCount({required String postId, required int delta}) {
+    state = state.copyWith(
+      posts: state.posts
+          .map((item) {
+            if (item.post.id != postId) return item;
+            final count = (item.post.commentCount ?? 0) + delta;
+            return PostWithMedia(
+              post: item.post.copyWithEngagement(
+                commentCount: count < 0 ? 0 : count,
+              ),
+              mediaItems: item.mediaItems,
+            );
+          })
+          .toList(growable: false),
     );
   }
 }

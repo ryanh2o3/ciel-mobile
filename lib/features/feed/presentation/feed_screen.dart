@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
+import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_state.dart';
 import 'package:ciel_mobile/features/feed/presentation/widgets/post_card.dart';
+import 'package:ciel_mobile/features/post/presentation/widgets/post_comments_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_empty_state.dart';
+import 'package:ciel_mobile/ui/ciel_feed_skeleton.dart';
+import 'package:ciel_mobile/ui/ciel_skeleton.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +29,7 @@ class FeedScreen extends ConsumerStatefulWidget {
 class _FeedScreenState extends ConsumerState<FeedScreen> {
   final ScrollController _scroll = ScrollController();
   ProviderSubscription<AuthState>? _authSub;
+  bool _initialLoadComplete = false;
 
   @override
   void initState() {
@@ -37,10 +42,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authNotifierProvider).user;
-      unawaited(
-        ref.read(feedNotifierProvider.notifier).loadInitialIfNeeded(user),
-      );
+      unawaited(_loadInitialFeed(user));
     });
+  }
+
+  Future<void> _loadInitialFeed(User? user) async {
+    await ref.read(feedNotifierProvider.notifier).loadInitialIfNeeded(user);
+    if (mounted) setState(() => _initialLoadComplete = true);
   }
 
   @override
@@ -123,90 +131,134 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     AuthState auth,
     FeedState feed,
   ) {
+    if (feed.posts.isEmpty && (feed.loading || !_initialLoadComplete)) {
+      return const [
+        SliverToBoxAdapter(child: _StoryStripSkeleton()),
+        CielFeedSkeleton(count: 2),
+      ];
+    }
+
     return [
-      if (feed.loading && feed.posts.isEmpty)
-        const SliverFillRemaining(
-          child: Center(child: CircularProgressIndicator()),
-        )
-      else ...[
+      SliverToBoxAdapter(
+        child: _StoryStrip(
+          myGroup: feed.myStoryGroup,
+          groups: feed.storyGroups,
+          currentUserAvatarUrl: auth.user?.avatarUrl,
+          currentUserLabel: auth.user?.displayName ?? auth.user?.handle,
+          onAddStory: () => context.push('/stories/create'),
+          onOpenStory: (stories, index) {
+            unawaited(
+              context.push(
+                '/stories/view',
+                extra: StoryViewerExtra(
+                  stories: stories,
+                  initialIndex: index,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      if (feed.error != null)
         SliverToBoxAdapter(
-          child: _StoryStrip(
-            myGroup: feed.myStoryGroup,
-            groups: feed.storyGroups,
-            currentUserAvatarUrl: auth.user?.avatarUrl,
-            currentUserLabel: auth.user?.displayName ?? auth.user?.handle,
-            onAddStory: () => context.push('/stories/create'),
-            onOpenStory: (stories, index) {
-              unawaited(
-                context.push(
-                  '/stories/view',
-                  extra: StoryViewerExtra(
-                    stories: stories,
-                    initialIndex: index,
+          child: Padding(
+            padding: const EdgeInsets.all(CielSpacing.md),
+            child: Column(
+              children: [
+                Text(
+                  feed.error!.userMessage,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
                   ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: CielSpacing.sm),
+                OutlinedButton(
+                  onPressed: _refresh,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      if (!feed.loading && feed.posts.isEmpty && feed.error == null)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: CielEmptyState(
+            icon: Icons.photo_outlined,
+            title: 'Your feed is empty',
+            subtitle: 'Follow people or share a photo to get started.',
+            actionLabel: 'Find people',
+            onAction: () => context.push('/search'),
+          ),
+        )
+      else
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = feed.posts[index];
+              return PostCard(
+                item: item,
+                onOpen: () => context.push(
+                  '/post/${item.post.id}',
+                  extra: 0,
+                ),
+                onOpenAtIndex: (index) => context.push(
+                  '/post/${item.post.id}',
+                  extra: index,
+                ),
+                onOpenProfile: () =>
+                    context.push('/profile/${item.post.ownerId}'),
+                onOpenComments: () => unawaited(
+                  showPostCommentsSheet(context, postId: item.post.id),
                 ),
               );
             },
+            childCount: feed.posts.length,
           ),
         ),
-        if (feed.error != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(CielSpacing.md),
-              child: Column(
-                children: [
-                  Text(
-                    feed.error!.userMessage,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: CielSpacing.sm),
-                  OutlinedButton(
-                    onPressed: _refresh,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
+      if (feed.loadingMore)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(CielSpacing.md),
+            child: Center(child: CircularProgressIndicator()),
           ),
-        if (!feed.loading && feed.posts.isEmpty && feed.error == null)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: CielEmptyState(
-              icon: Icons.photo_outlined,
-              title: 'Your feed is empty',
-              subtitle: 'Follow people or share a photo to get started.',
-              actionLabel: 'Find people',
-              onAction: () => context.push('/search'),
-            ),
-          )
-        else
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = feed.posts[index];
-                return PostCard(
-                  item: item,
-                  onOpen: () => context.push('/post/${item.post.id}'),
-                  onOpenProfile: () =>
-                      context.push('/profile/${item.post.ownerId}'),
-                  onOpenComments: () => context.push('/post/${item.post.id}'),
-                );
-              },
-              childCount: feed.posts.length,
-            ),
-          ),
-        if (feed.loadingMore)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(CielSpacing.md),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          ),
-      ],
+        ),
     ];
+  }
+}
+
+class _StoryStripSkeleton extends StatelessWidget {
+  const _StoryStripSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 112,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(
+          horizontal: CielSpacing.md - 4,
+          vertical: CielSpacing.sm,
+        ),
+        scrollDirection: Axis.horizontal,
+        itemCount: 5,
+        separatorBuilder: (_, _) => const SizedBox(width: CielSpacing.md - 4),
+        itemBuilder: (_, _) => const SizedBox(
+          width: 68,
+          child: Column(
+            children: [
+              CielSkeleton(
+                width: CielAvatarSize.lg,
+                height: CielAvatarSize.lg,
+                borderRadius: BorderRadius.all(Radius.circular(999)),
+              ),
+              SizedBox(height: CielSpacing.xs),
+              CielSkeleton(width: 48, height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -284,8 +336,8 @@ class _MyStoryChip extends StatelessWidget {
     final ring = !hasStories
         ? CielStoryRingStyle.none
         : (group?.hasUnseenStories ?? false)
-            ? CielStoryRingStyle.unseen
-            : CielStoryRingStyle.seen;
+        ? CielStoryRingStyle.unseen
+        : CielStoryRingStyle.seen;
 
     var imageUrl = avatarUrl;
     if ((imageUrl == null || imageUrl.isEmpty) && hasStories) {

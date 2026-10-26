@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ciel_mobile/ui/ciel_skeleton.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum CielStoryRingStyle {
@@ -139,23 +139,16 @@ class _AvatarImage extends StatelessWidget {
       width: size,
       height: size,
       fit: BoxFit.cover,
-      placeholder: (_, _) => ColoredBox(
-        color: scheme.primaryContainer,
-        child: const Center(
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
+      fadeInDuration: const Duration(milliseconds: 160),
+      placeholder: (_, _) => CielSkeleton(
+        width: size,
+        height: size,
+        borderRadius: BorderRadius.circular(size / 2),
       ),
-      errorWidget: (_, failedUrl, error) {
-        if (kDebugMode) {
-          debugPrint('[CielAvatar] failed to load: $failedUrl');
-          debugPrint('[CielAvatar] error: $error');
-        }
-        return _Initial(initial: initial, scheme: scheme);
-      },
+      errorWidget: (_, _, _) => _Initial(
+        initial: initial,
+        scheme: scheme,
+      ),
     );
   }
 }

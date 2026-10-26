@@ -8,10 +8,12 @@ import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/post/presentation/post_share_service.dart';
 import 'package:ciel_mobile/features/post/presentation/widgets/likers_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_media_carousel.dart';
 import 'package:ciel_mobile/ui/ciel_relative_time.dart';
+import 'package:ciel_mobile/ui/ciel_skeleton.dart';
 import 'package:ciel_mobile/ui/report_user_sheet.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
@@ -19,9 +21,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
-  const PostDetailScreen({required this.postId, super.key});
+  const PostDetailScreen({
+    required this.postId,
+    this.initialMediaIndex = 0,
+    super.key,
+  });
 
   final String postId;
+  final int initialMediaIndex;
 
   @override
   ConsumerState<PostDetailScreen> createState() => _PostDetailScreenState();
@@ -72,7 +79,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           }
         }
       }
-      final comments = await ref.read(postUseCaseProvider).fetchComments(
+      final comments = await ref
+          .read(postUseCaseProvider)
+          .fetchComments(
             postId: widget.postId,
             limit: 50,
           );
@@ -106,7 +115,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     }
     setState(() => _loadingMoreComments = true);
     try {
-      final page = await ref.read(postUseCaseProvider).fetchComments(
+      final page = await ref
+          .read(postUseCaseProvider)
+          .fetchComments(
             postId: widget.postId,
             limit: 50,
             cursor: cursor,
@@ -136,6 +147,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       _isLiked = !wasLiked;
       _likeCount += wasLiked ? -1 : 1;
     });
+    ref
+        .read(feedNotifierProvider.notifier)
+        .updatePostEngagement(
+          postId: _post!.id,
+          likedByViewer: !wasLiked,
+          likeCount: _likeCount,
+        );
     try {
       if (wasLiked) {
         await ref.read(postUseCaseProvider).unlikePost(_post!.id);
@@ -148,6 +166,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           _isLiked = wasLiked;
           _likeCount += wasLiked ? 1 : -1;
         });
+        ref
+            .read(feedNotifierProvider.notifier)
+            .updatePostEngagement(
+              postId: _post!.id,
+              likedByViewer: wasLiked,
+              likeCount: _likeCount,
+            );
         showErrorSnackBar(context, e);
       }
     } finally {
@@ -191,7 +216,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       return;
     }
     try {
-      final updated = await ref.read(postUseCaseProvider).updatePost(
+      final updated = await ref
+          .read(postUseCaseProvider)
+          .updatePost(
             id: post.id,
             caption: next.isEmpty ? null : next,
           );
@@ -251,7 +278,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       return;
     }
     try {
-      await ref.read(moderationUseCaseProvider).reportPost(
+      await ref
+          .read(moderationUseCaseProvider)
+          .reportPost(
             postId: widget.postId,
             reason: reason.isEmpty ? null : reason,
           );
@@ -265,18 +294,37 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     }
   }
 
+  Future<void> _share(BuildContext anchorContext) async {
+    final post = _post;
+    if (post == null) return;
+    try {
+      await PostShareService.share(
+        post,
+        sharePositionOrigin: PostShareService.originFrom(anchorContext),
+      );
+    } on Object catch (error) {
+      if (mounted) showErrorSnackBar(context, error);
+    }
+  }
+
   Future<void> _sendComment() async {
     final text = _commentBody.text.trim();
     if (text.isEmpty) {
       return;
     }
     try {
-      final c = await ref.read(postUseCaseProvider).addComment(
+      final c = await ref
+          .read(postUseCaseProvider)
+          .addComment(
             postId: widget.postId,
             body: text,
           );
+      if (!mounted) return;
       _commentBody.clear();
       setState(() => _comments = [c, ..._comments]);
+      ref
+          .read(feedNotifierProvider.notifier)
+          .changeCommentCount(postId: widget.postId, delta: 1);
     } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(context, e);
@@ -290,13 +338,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       return;
     }
     try {
-      await ref.read(postUseCaseProvider).deleteComment(
+      await ref
+          .read(postUseCaseProvider)
+          .deleteComment(
             postId: widget.postId,
             commentId: comment.id,
           );
+      if (!mounted) return;
       setState(
         () => _comments = _comments.where((c) => c.id != comment.id).toList(),
       );
+      ref
+          .read(feedNotifierProvider.notifier)
+          .changeCommentCount(postId: widget.postId, delta: -1);
     } on Object catch (e) {
       if (mounted) {
         showErrorSnackBar(context, e);
@@ -307,14 +361,21 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const _PostDetailLoading();
     }
     if (_error != null || _post == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(_error ?? 'Not found')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error ?? 'Post not found'),
+              const SizedBox(height: CielSpacing.md),
+              FilledButton(onPressed: _load, child: const Text('Try again')),
+            ],
+          ),
+        ),
       );
     }
     final post = _post!;
@@ -379,13 +440,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       const SizedBox(width: CielSpacing.sm),
                       Expanded(
                         child: InkWell(
-                          onTap: () =>
-                              context.push('/profile/${post.ownerId}'),
+                          onTap: () => context.push('/profile/${post.ownerId}'),
                           child: Text(
                             name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
@@ -399,12 +457,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                     ],
                   ),
                 ),
-                CielMediaCarousel(mediaItems: _media),
+                CielMediaCarousel(
+                  mediaItems: _media,
+                  heroTagPrefix: 'post:${post.id}:media',
+                  initialPage: _media.isEmpty
+                      ? 0
+                      : widget.initialMediaIndex.clamp(0, _media.length - 1),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(left: CielSpacing.xs),
                   child: Row(
                     children: [
                       IconButton(
+                        tooltip: _isLiked ? 'Unlike post' : 'Like post',
                         icon: Icon(
                           _isLiked ? Icons.favorite : Icons.favorite_border,
                           color: _isLiked ? Colors.red : null,
@@ -412,8 +477,16 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         onPressed: _likedBusy ? null : _toggleLike,
                       ),
                       IconButton(
+                        tooltip: 'Add a comment',
                         icon: const Icon(Icons.chat_bubble_outline),
-                        onPressed: () => _commentFocus.requestFocus(),
+                        onPressed: _commentFocus.requestFocus,
+                      ),
+                      Builder(
+                        builder: (context) => IconButton(
+                          tooltip: 'Share post',
+                          icon: const Icon(Icons.share_outlined),
+                          onPressed: () => _share(context),
+                        ),
                       ),
                     ],
                   ),
@@ -453,8 +526,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           if (handle.isNotEmpty)
                             TextSpan(
                               text: handle,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           if (handle.isNotEmpty) const TextSpan(text: ' '),
                           TextSpan(text: post.caption),
@@ -547,6 +621,50 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   ],
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostDetailLoading extends StatelessWidget {
+  const _PostDetailLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Post')),
+      body: ListView(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(CielSpacing.md),
+            child: Row(
+              children: [
+                CielSkeleton(
+                  width: CielAvatarSize.sm,
+                  height: CielAvatarSize.sm,
+                  borderRadius: BorderRadius.all(Radius.circular(999)),
+                ),
+                SizedBox(width: CielSpacing.sm),
+                CielSkeleton(width: 132, height: 14),
+              ],
+            ),
+          ),
+          CielSkeleton(height: width, borderRadius: BorderRadius.zero),
+          const Padding(
+            padding: EdgeInsets.all(CielSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CielSkeleton(width: 76, height: 14),
+                SizedBox(height: CielSpacing.md),
+                CielSkeleton(height: 13),
+                SizedBox(height: CielSpacing.xs),
+                CielSkeleton(width: 220, height: 13),
+              ],
             ),
           ),
         ],

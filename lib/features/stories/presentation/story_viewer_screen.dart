@@ -25,21 +25,25 @@ class StoryViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final Map<String, Media?> _media = {};
+  late List<Story> _stories;
   late int _index;
   bool _paused = false;
+  bool _pausedForLifecycle = false;
   double _dragOffset = 0;
   late final AnimationController _progress;
 
   static const _storyDuration = Duration(seconds: 5);
 
   StoryViewerExtra get extra => widget.extra;
-  List<Story> get stories => extra.stories;
+  List<Story> get stories => _stories;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _stories = List<Story>.of(extra.stories);
     _index = extra.initialIndex.clamp(
       0,
       stories.isEmpty ? 0 : stories.length - 1,
@@ -55,6 +59,19 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
       unawaited(_prefetch(_index + 1));
       _startProgress();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_pausedForLifecycle) {
+        _pausedForLifecycle = false;
+        _resume();
+      }
+    } else if (!_paused) {
+      _pausedForLifecycle = true;
+      _pause();
+    }
   }
 
   void _onProgressStatus(AnimationStatus status) {
@@ -151,8 +168,58 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
     }
   }
 
+  Future<void> _deleteStory(Story story) async {
+    _pause();
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this story?'),
+        content: const Text('This story will be removed for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (shouldDelete != true) {
+      _resume();
+      return;
+    }
+
+    try {
+      await ref.read(storyUseCaseProvider).deleteStory(story.id);
+      if (!mounted) return;
+      final deletedIndex = stories.indexWhere((item) => item.id == story.id);
+      setState(() {
+        stories.removeWhere((item) => item.id == story.id);
+        if (_index >= stories.length) _index = stories.length - 1;
+      });
+      ref.invalidate(feedNotifierProvider);
+      if (stories.isEmpty) {
+        context.pop();
+      } else {
+        _resume();
+        _startProgress();
+        if (deletedIndex <= _index) unawaited(_markSeen(_index));
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        _resume();
+        showErrorSnackBar(context, error);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progress
       ..removeStatusListener(_onProgressStatus)
       ..dispose();
@@ -243,7 +310,17 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                             ),
                             onPressed: () => unawaited(_openViewers(story)),
                           ),
+                        if (isOwner)
+                          IconButton(
+                            tooltip: 'Delete story',
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                            ),
+                            onPressed: () => unawaited(_deleteStory(story)),
+                          ),
                         IconButton(
+                          tooltip: 'Close story',
                           icon: const Icon(Icons.close, color: Colors.white),
                           onPressed: () => context.pop(),
                         ),
@@ -282,17 +359,34 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                             Positioned(
                               left: CielSpacing.md,
                               right: CielSpacing.md,
-                              bottom: CielSpacing.md,
-                              child: Text(
-                                story.caption!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  shadows: [
-                                    Shadow(
-                                      blurRadius: 8,
-                                      color: Colors.black54,
+                              bottom: CielSpacing.lg,
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 360,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: CielSpacing.md,
+                                    vertical: CielSpacing.sm,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.52),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
                                     ),
-                                  ],
+                                  ),
+                                  child: Text(
+                                    story.caption!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      height: 1.3,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -349,18 +443,18 @@ class _ProgressSegment extends StatelessWidget {
         child: filled
             ? const ColoredBox(color: Colors.white)
             : active
-                ? AnimatedBuilder(
-                    animation: controller,
-                    builder: (context, _) {
-                      return LinearProgressIndicator(
-                        value: controller.value,
-                        backgroundColor: Colors.white24,
-                        color: Colors.white,
-                        minHeight: 2.5,
-                      );
-                    },
-                  )
-                : const ColoredBox(color: Colors.white24),
+            ? AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  return LinearProgressIndicator(
+                    value: controller.value,
+                    backgroundColor: Colors.white24,
+                    color: Colors.white,
+                    minHeight: 2.5,
+                  );
+                },
+              )
+            : const ColoredBox(color: Colors.white24),
       ),
     );
   }

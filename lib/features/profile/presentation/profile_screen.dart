@@ -361,11 +361,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   _StatChip(
                                     label: 'followers',
                                     value: u.followersCount,
+                                    onTap: () => context.push(
+                                      '/profile/${u.id}/followers',
+                                    ),
                                   ),
                                   const SizedBox(width: CielSpacing.md),
                                   _StatChip(
                                     label: 'following',
                                     value: u.followingCount,
+                                    onTap: () => context.push(
+                                      '/profile/${u.id}/following',
+                                    ),
                                   ),
                                 ],
                               ),
@@ -373,8 +379,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 const SizedBox(height: CielSpacing.sm),
                                 Text(u.bio!),
                               ],
-                              if (!isSelf && rel != null) ...[
-                                const SizedBox(height: CielSpacing.md),
+                              const SizedBox(height: CielSpacing.md),
+                              if (isSelf)
+                                OutlinedButton(
+                                  onPressed: () async {
+                                    final updated = await context.push<bool>(
+                                      '/profile/${u.id}/edit',
+                                      extra: u,
+                                    );
+                                    if (updated == true && mounted) {
+                                      unawaited(_load(u.id, soft: true));
+                                    }
+                                  },
+                                  child: const Text('Edit profile'),
+                                )
+                              else if (rel != null)
                                 FilledButton(
                                   onPressed:
                                       rel.isBlockedBy ? null : _toggleFollow,
@@ -382,7 +401,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     rel.isFollowing ? 'Unfollow' : 'Follow',
                                   ),
                                 ),
-                              ],
                             ],
                           ),
                         ),
@@ -452,14 +470,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+  const _StatChip({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final int value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final child = Column(
       children: [
         Text(
           '$value',
@@ -474,6 +497,17 @@ class _StatChip extends StatelessWidget {
           ),
         ),
       ],
+    );
+    if (onTap == null) {
+      return child;
+    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(CielRadii.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: CielSpacing.xs),
+        child: child,
+      ),
     );
   }
 }

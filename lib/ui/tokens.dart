@@ -26,3 +26,9 @@ abstract final class CielStoryRing {
   static const double width = 2.5;
   static const double gap = 2;
 }
+
+abstract final class CielDurations {
+  static const Duration fast = Duration(milliseconds: 120);
+  static const Duration normal = Duration(milliseconds: 200);
+  static const Duration slow = Duration(milliseconds: 320);
+}

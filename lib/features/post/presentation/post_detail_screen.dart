@@ -8,8 +8,10 @@ import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/post.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/post/presentation/widgets/likers_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
-import 'package:ciel_mobile/ui/ciel_network_image.dart';
+import 'package:ciel_mobile/ui/ciel_media_carousel.dart';
+import 'package:ciel_mobile/ui/ciel_relative_time.dart';
 import 'package:ciel_mobile/ui/report_user_sheet.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/material.dart';
@@ -29,12 +31,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   Post? _post;
   List<Media> _media = [];
   List<Comment> _comments = [];
+  String? _commentsCursor;
+  bool _loadingMoreComments = false;
   bool _isLiked = false;
   int _likeCount = 0;
   bool _likedBusy = false;
   bool _loading = true;
   String? _error;
   final _commentBody = TextEditingController();
+  final _commentFocus = FocusNode();
 
   @override
   void initState() {
@@ -45,6 +50,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   void dispose() {
     _commentBody.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -66,9 +72,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           }
         }
       }
-      final comments = await ref
-          .read(postUseCaseProvider)
-          .fetchComments(
+      final comments = await ref.read(postUseCaseProvider).fetchComments(
             postId: widget.postId,
             limit: 50,
           );
@@ -79,6 +83,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           _post = post;
           _media = mediaList;
           _comments = comments.items;
+          _commentsCursor = comments.nextCursor;
           _isLiked = liked;
           _likeCount = likeCount;
           _loading = false;
@@ -90,6 +95,33 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           _loading = false;
           _error = mapToFailure(e).userMessage;
         });
+      }
+    }
+  }
+
+  Future<void> _loadMoreComments() async {
+    final cursor = _commentsCursor;
+    if (cursor == null || _loadingMoreComments) {
+      return;
+    }
+    setState(() => _loadingMoreComments = true);
+    try {
+      final page = await ref.read(postUseCaseProvider).fetchComments(
+            postId: widget.postId,
+            limit: 50,
+            cursor: cursor,
+          );
+      if (mounted) {
+        setState(() {
+          _comments = [..._comments, ...page.items];
+          _commentsCursor = page.nextCursor;
+          _loadingMoreComments = false;
+        });
+      }
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() => _loadingMoreComments = false);
+        showErrorSnackBar(context, e);
       }
     }
   }
@@ -121,6 +153,56 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     } finally {
       if (mounted) {
         setState(() => _likedBusy = false);
+      }
+    }
+  }
+
+  Future<void> _editCaption() async {
+    final post = _post;
+    if (post == null) {
+      return;
+    }
+    final controller = TextEditingController(text: post.caption ?? '');
+    final next = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Edit caption'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          maxLength: 2200,
+          decoration: const InputDecoration(hintText: 'Caption'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (next == null || !mounted) {
+      return;
+    }
+    try {
+      final updated = await ref.read(postUseCaseProvider).updatePost(
+            id: post.id,
+            caption: next.isEmpty ? null : next,
+          );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _post = updated);
+      showSuccessSnackBar(context, 'Caption updated');
+    } on Object catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, e);
       }
     }
   }
@@ -164,7 +246,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Future<void> _reportPost() async {
-    final reason = await showReportUserSheet(context);
+    final reason = await showReportPostSheet(context);
     if (reason == null) {
       return;
     }
@@ -189,9 +271,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       return;
     }
     try {
-      final c = await ref
-          .read(postUseCaseProvider)
-          .addComment(
+      final c = await ref.read(postUseCaseProvider).addComment(
             postId: widget.postId,
             body: text,
           );
@@ -240,107 +320,233 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final post = _post!;
     final me = ref.watch(authNotifierProvider).user;
     final isOwner = me?.id == post.ownerId;
-    final thumb = _media.isNotEmpty
-        ? (_media.first.mediumUrl ?? _media.first.thumbUrl)
-        : null;
+    final handle = post.ownerHandle ?? '';
+    final name = post.ownerDisplayName ?? handle;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Post'),
         actions: [
-          if (!isOwner)
-            PopupMenuButton<String>(
-              onSelected: (value) async {
-                if (value == 'report') {
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              switch (value) {
+                case 'report':
                   await _reportPost();
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
+                case 'edit':
+                  await _editCaption();
+                case 'delete':
+                  await _deleteIfOwner();
+              }
+            },
+            itemBuilder: (context) => [
+              if (isOwner) ...[
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Edit caption'),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Delete'),
+                ),
+              ] else
+                const PopupMenuItem(
                   value: 'report',
                   child: Text('Report'),
                 ),
-              ],
-            ),
-          if (isOwner)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _deleteIfOwner,
-            ),
+            ],
+          ),
         ],
       ),
-      body: ListView(
+      body: Column(
         children: [
-          ListTile(
-            leading: CielAvatar(
-              imageUrl: post.ownerAvatarUrl,
-              size: CielAvatarSize.sm,
-              label: post.ownerDisplayName ?? post.ownerHandle,
-            ),
-            title: Text(post.ownerDisplayName ?? post.ownerHandle ?? ''),
-            subtitle: Text('@${post.ownerHandle ?? ''}'),
-            onTap: () => context.push('/profile/${post.ownerId}'),
-          ),
-          AspectRatio(
-            aspectRatio: 1,
-            child: CielNetworkImage(imageUrl: thumb),
-          ),
-          if (post.caption != null && post.caption!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(post.caption!),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
+          Expanded(
+            child: ListView(
               children: [
-                IconButton(
-                  icon: Icon(
-                    _isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: _isLiked ? Colors.red : null,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: CielSpacing.md,
+                    vertical: CielSpacing.sm,
                   ),
-                  onPressed: _likedBusy ? null : _toggleLike,
+                  child: Row(
+                    children: [
+                      CielAvatar(
+                        imageUrl: post.ownerAvatarUrl,
+                        size: CielAvatarSize.sm,
+                        label: name,
+                        onTap: () => context.push('/profile/${post.ownerId}'),
+                      ),
+                      const SizedBox(width: CielSpacing.sm),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () =>
+                              context.push('/profile/${post.ownerId}'),
+                          child: Text(
+                            name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        cielRelativeTime(post.createdAt),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(
-                  '$_likeCount likes · '
-                  '${_post?.commentCount ?? _comments.length} comments',
+                CielMediaCarousel(mediaItems: _media),
+                Padding(
+                  padding: const EdgeInsets.only(left: CielSpacing.xs),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _isLiked ? Icons.favorite : Icons.favorite_border,
+                          color: _isLiked ? Colors.red : null,
+                        ),
+                        onPressed: _likedBusy ? null : _toggleLike,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        onPressed: () => _commentFocus.requestFocus(),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentBody,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a comment…',
+                if (_likeCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      CielSpacing.md,
+                      0,
+                      CielSpacing.md,
+                      CielSpacing.xs,
+                    ),
+                    child: GestureDetector(
+                      onTap: () => showLikersSheet(
+                        context,
+                        postId: post.id,
+                      ),
+                      child: Text(
+                        '$_likeCount ${_likeCount == 1 ? 'like' : 'likes'}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
+                if (post.caption != null && post.caption!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      CielSpacing.md,
+                      0,
+                      CielSpacing.md,
+                      CielSpacing.sm,
+                    ),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          if (handle.isNotEmpty)
+                            TextSpan(
+                              text: handle,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          if (handle.isNotEmpty) const TextSpan(text: ' '),
+                          TextSpan(text: post.caption),
+                        ],
+                      ),
+                    ),
+                  ),
+                const Divider(height: 1),
+                ..._comments.map(
+                  (c) => ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: CielSpacing.md,
+                    ),
+                    leading: CielAvatar(
+                      size: CielAvatarSize.sm,
+                      label: c.authorLabel,
+                      onTap: () => context.push('/profile/${c.userId}'),
+                    ),
+                    title: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: c.authorLabel,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const TextSpan(text: ' '),
+                          TextSpan(text: c.body),
+                        ],
+                      ),
+                    ),
+                    subtitle: Text(cielRelativeTime(c.createdAt)),
+                    onLongPress: me?.id == c.userId
+                        ? () => _deleteComment(c)
+                        : null,
+                    trailing: me?.id == c.userId
+                        ? IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteComment(c),
+                          )
+                        : null,
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendComment,
-                ),
+                if (_commentsCursor != null)
+                  TextButton(
+                    onPressed: _loadingMoreComments ? null : _loadMoreComments,
+                    child: _loadingMoreComments
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load more comments'),
+                  ),
+                const SizedBox(height: CielSpacing.lg),
               ],
             ),
           ),
-          ..._comments.map(
-            (c) => ListTile(
-              title: Text(c.authorLabel),
-              subtitle: Text(c.body),
-              onLongPress: me?.id == c.userId
-                  ? () => _deleteComment(c)
-                  : null,
-              trailing: me?.id == c.userId
-                  ? IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _deleteComment(c),
-                    )
-                  : null,
+          Material(
+            elevation: 2,
+            color: scheme.surface,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: CielSpacing.md,
+                  right: CielSpacing.sm,
+                  top: CielSpacing.sm,
+                  bottom: MediaQuery.viewInsetsOf(context).bottom > 0
+                      ? CielSpacing.sm
+                      : CielSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commentBody,
+                        focusNode: _commentFocus,
+                        decoration: const InputDecoration(
+                          hintText: 'Add a comment…',
+                          isDense: true,
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendComment(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: _sendComment,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

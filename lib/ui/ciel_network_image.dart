@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Network image that fills its parent constraints (feed / grid / avatar).
@@ -48,17 +49,23 @@ class CielNetworkImage extends StatelessWidget {
           ),
         ),
       ),
-      errorWidget: (_, _, _) => SizedBox(
-        width: width,
-        height: height,
-        child: ColoredBox(
-          color: Theme.of(context).colorScheme.errorContainer,
-          child: Icon(
-            Icons.broken_image_outlined,
-            color: Theme.of(context).colorScheme.onErrorContainer,
+      errorWidget: (_, failedUrl, error) {
+        if (kDebugMode) {
+          debugPrint('[CielNetworkImage] failed to load: $failedUrl');
+          debugPrint('[CielNetworkImage] error: $error');
+        }
+        return SizedBox(
+          width: width,
+          height: height,
+          child: ColoredBox(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: Icon(
+              Icons.broken_image_outlined,
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

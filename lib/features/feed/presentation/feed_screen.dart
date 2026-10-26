@@ -1,16 +1,14 @@
 import 'dart:async';
 
-import 'package:ciel_mobile/app/providers/dependency_providers.dart';
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
-import 'package:ciel_mobile/core/errors/error_snackbar.dart';
-import 'package:ciel_mobile/domain/entities/post_with_media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_state.dart';
+import 'package:ciel_mobile/features/feed/presentation/widgets/post_card.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
-import 'package:ciel_mobile/ui/ciel_network_image.dart';
+import 'package:ciel_mobile/ui/ciel_empty_state.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -174,9 +172,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
         if (!feed.loading && feed.posts.isEmpty && feed.error == null)
-          const SliverFillRemaining(
+          SliverFillRemaining(
             hasScrollBody: false,
-            child: _FeedEmpty(),
+            child: CielEmptyState(
+              icon: Icons.photo_outlined,
+              title: 'Your feed is empty',
+              subtitle: 'Follow people or share a photo to get started.',
+              actionLabel: 'Find people',
+              onAction: () => context.push('/search'),
+            ),
           )
         else
           SliverList(
@@ -203,53 +207,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
       ],
     ];
-  }
-}
-
-class _FeedEmpty extends StatelessWidget {
-  const _FeedEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(CielSpacing.lg),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.photo_outlined, size: 48, color: scheme.onSurfaceVariant),
-          const SizedBox(height: CielSpacing.md),
-          Text(
-            'Your feed is empty',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: CielSpacing.sm),
-          Text(
-            'Follow people or share a photo to get started.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: CielSpacing.lg),
-          Wrap(
-            spacing: CielSpacing.sm,
-            runSpacing: CielSpacing.sm,
-            alignment: WrapAlignment.center,
-            children: [
-              FilledButton(
-                onPressed: () => context.push('/search'),
-                child: const Text('Find people'),
-              ),
-              OutlinedButton(
-                onPressed: () => context.push('/create'),
-                child: const Text('Create post'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -330,7 +287,6 @@ class _MyStoryChip extends StatelessWidget {
             ? CielStoryRingStyle.unseen
             : CielStoryRingStyle.seen;
 
-    // Prefer own avatar; fall back to latest story thumb only if no avatar.
     var imageUrl = avatarUrl;
     if ((imageUrl == null || imageUrl.isEmpty) && hasStories) {
       final latest = stories.reduce(
@@ -424,210 +380,6 @@ class _StoryAvatar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class PostCard extends ConsumerStatefulWidget {
-  const PostCard({
-    required this.item,
-    required this.onOpen,
-    required this.onOpenProfile,
-    required this.onOpenComments,
-    super.key,
-  });
-
-  final PostWithMedia item;
-  final VoidCallback onOpen;
-  final VoidCallback onOpenProfile;
-  final VoidCallback onOpenComments;
-
-  @override
-  ConsumerState<PostCard> createState() => _PostCardState();
-}
-
-class _PostCardState extends ConsumerState<PostCard>
-    with SingleTickerProviderStateMixin {
-  late bool _liked;
-  late int _likeCount;
-  bool _busy = false;
-  bool _showHeart = false;
-  late final AnimationController _heartAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    final post = widget.item.post;
-    _liked = post.likedByViewer ?? false;
-    _likeCount = post.likeCount ?? 0;
-    _heartAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant PostCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.post.id != widget.item.post.id) {
-      _liked = widget.item.post.likedByViewer ?? false;
-      _likeCount = widget.item.post.likeCount ?? 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _heartAnim.dispose();
-    super.dispose();
-  }
-
-  Future<void> _toggleLike() async {
-    if (_busy) {
-      return;
-    }
-    final wasLiked = _liked;
-    setState(() {
-      _busy = true;
-      _liked = !wasLiked;
-      _likeCount += wasLiked ? -1 : 1;
-    });
-    try {
-      if (wasLiked) {
-        await ref.read(postUseCaseProvider).unlikePost(widget.item.post.id);
-      } else {
-        await ref.read(postUseCaseProvider).likePost(widget.item.post.id);
-      }
-    } on Object catch (e) {
-      if (mounted) {
-        setState(() {
-          _liked = wasLiked;
-          _likeCount += wasLiked ? 1 : -1;
-        });
-        showErrorSnackBar(context, e);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  Future<void> _doubleTapLike() async {
-    setState(() => _showHeart = true);
-    _heartAnim.forward(from: 0);
-    if (!_liked) {
-      await _toggleLike();
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (mounted) {
-      setState(() => _showHeart = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    final post = item.post;
-    final thumb = item.primaryMedia?.mediumUrl ?? item.primaryMedia?.thumbUrl;
-    final name = post.ownerDisplayName ?? post.ownerHandle ?? '';
-    final scheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: CielSpacing.md,
-          ),
-          leading: CielAvatar(
-            imageUrl: post.ownerAvatarUrl,
-            size: CielAvatarSize.sm,
-            label: name,
-            onTap: widget.onOpenProfile,
-          ),
-          title: Text(name),
-          subtitle: Text('@${post.ownerHandle ?? ''}'),
-          onTap: widget.onOpenProfile,
-        ),
-        GestureDetector(
-          onTap: widget.onOpen,
-          onDoubleTap: _doubleTapLike,
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CielNetworkImage(imageUrl: thumb),
-                if (_showHeart)
-                  Center(
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.6, end: 1.2).animate(
-                        CurvedAnimation(
-                          parent: _heartAnim,
-                          curve: Curves.easeOutBack,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Colors.white,
-                        size: 80,
-                        shadows: [
-                          Shadow(blurRadius: 12, color: Colors.black45),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        if (post.caption != null && post.caption!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              CielSpacing.md,
-              CielSpacing.sm,
-              CielSpacing.md,
-              0,
-            ),
-            child: Text(post.caption!),
-          ),
-        Padding(
-          padding: const EdgeInsets.only(
-            left: CielSpacing.xs,
-            right: CielSpacing.md,
-            bottom: CielSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  _liked ? Icons.favorite : Icons.favorite_border,
-                  color: _liked ? Colors.red : null,
-                ),
-                onPressed: _busy ? null : _toggleLike,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chat_bubble_outline),
-                onPressed: widget.onOpenComments,
-              ),
-              if (_likeCount > 0 || (post.commentCount ?? 0) > 0)
-                Expanded(
-                  child: Text(
-                    [
-                      if (_likeCount > 0) '$_likeCount likes',
-                      if ((post.commentCount ?? 0) > 0)
-                        '${post.commentCount} comments',
-                    ].join(' · '),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.4)),
-      ],
     );
   }
 }

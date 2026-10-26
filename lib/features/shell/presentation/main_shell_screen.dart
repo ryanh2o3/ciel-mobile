@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:ciel_mobile/app/providers/dependency_providers.dart';
+import 'package:ciel_mobile/features/notifications/presentation/notifications_unread_provider.dart';
+import 'package:ciel_mobile/ui/ciel_create_chooser_sheet.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Branch order for StatefulNavigationShell must match app router branches:
@@ -13,7 +17,7 @@ abstract final class _ShellBranchIndex {
 }
 
 /// Bottom bar positions: Create is slot 1 but is not a shell branch
-/// (opens `/create` on root stack).
+/// (opens create chooser on root stack).
 abstract final class _NavBarSlot {
   static const int home = 0;
   static const int create = 1;
@@ -22,12 +26,39 @@ abstract final class _NavBarSlot {
 }
 
 /// Swift `AppTabsView`: Home, Create (modal), Notifications, Profile.
-/// Uses [CupertinoTabBar] on iOS for native chrome; Material [NavigationBar]
-/// elsewhere.
-class MainShellScreen extends StatelessWidget {
+class MainShellScreen extends ConsumerStatefulWidget {
   const MainShellScreen({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
+}
+
+class _MainShellScreenState extends ConsumerState<MainShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_prefetchUnread());
+    });
+  }
+
+  Future<void> _prefetchUnread() async {
+    try {
+      final page = await ref
+          .read(notificationsUseCaseProvider)
+          .fetchNotifications(limit: 20);
+      final hasUnread = page.items.any((n) => n.readAt == null);
+      if (mounted) {
+        ref
+            .read(notificationsHasUnreadProvider.notifier)
+            .setHasUnread(value: hasUnread);
+      }
+    } on Object {
+      // Badge stays false until NotificationsScreen loads.
+    }
+  }
 
   int _navBarIndexFromBranch(int branchIndex) {
     return switch (branchIndex) {
@@ -44,41 +75,67 @@ class MainShellScreen extends StatelessWidget {
     return slotIndex - 1;
   }
 
-  void _onSlotSelected(BuildContext context, int slotIndex) {
-    if (slotIndex == _NavBarSlot.create) {
-      unawaited(context.push('/create'));
+  Future<void> _onCreate(BuildContext context) async {
+    final choice = await showCielCreateChooserSheet(context);
+    if (!context.mounted || choice == null) {
       return;
     }
-    navigationShell.goBranch(_branchFromNavBarSlot(slotIndex));
+    switch (choice) {
+      case CielCreateChoice.post:
+        await context.push('/create');
+      case CielCreateChoice.story:
+        await context.push('/stories/create');
+    }
+  }
+
+  void _onSlotSelected(BuildContext context, int slotIndex) {
+    if (slotIndex == _NavBarSlot.create) {
+      unawaited(_onCreate(context));
+      return;
+    }
+    widget.navigationShell.goBranch(_branchFromNavBarSlot(slotIndex));
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedNavBarIndex = _navBarIndexFromBranch(
-      navigationShell.currentIndex,
+      widget.navigationShell.currentIndex,
     );
     final isIos = Theme.of(context).platform == TargetPlatform.iOS;
+    final hasUnread = ref.watch(notificationsHasUnreadProvider);
+
+    Widget notifIcon({required IconData outlined, required IconData filled}) {
+      final selected = selectedNavBarIndex == _NavBarSlot.notifications;
+      return Badge(
+        isLabelVisible: hasUnread,
+        smallSize: 8,
+        child: Icon(selected ? filled : outlined),
+      );
+    }
 
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: isIos
           ? CupertinoTabBar(
               currentIndex: selectedNavBarIndex,
               onTap: (i) => _onSlotSelected(context, i),
-              items: const [
-                BottomNavigationBarItem(
+              items: [
+                const BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.home),
                   label: 'Home',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.add_circled),
                   label: 'Create',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.heart),
+                  icon: notifIcon(
+                    outlined: CupertinoIcons.heart,
+                    filled: CupertinoIcons.heart_fill,
+                  ),
                   label: 'Notifications',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.person),
                   label: 'Profile',
                 ),
@@ -88,23 +145,29 @@ class MainShellScreen extends StatelessWidget {
               selectedIndex: selectedNavBarIndex,
               onDestinationSelected: (slotIndex) =>
                   _onSlotSelected(context, slotIndex),
-              destinations: const [
-                NavigationDestination(
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
                   label: 'Home',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.add_box_outlined),
                   selectedIcon: Icon(Icons.add_box),
                   label: 'Create',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.favorite_border),
-                  selectedIcon: Icon(Icons.favorite),
+                  icon: notifIcon(
+                    outlined: Icons.favorite_border,
+                    filled: Icons.favorite,
+                  ),
+                  selectedIcon: notifIcon(
+                    outlined: Icons.favorite_border,
+                    filled: Icons.favorite,
+                  ),
                   label: 'Notifications',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.person_outline),
                   selectedIcon: Icon(Icons.person),
                   label: 'Profile',

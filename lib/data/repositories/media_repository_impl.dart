@@ -5,6 +5,7 @@ import 'package:ciel_mobile/data/dto/models_dtos.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/repositories/media_repository.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class MediaRepositoryImpl implements MediaRepository {
   MediaRepositoryImpl({
@@ -112,6 +113,15 @@ class MediaRepositoryImpl implements MediaRepository {
       }
       throw AppException('Failed to load media', cause: res.statusMessage);
     } on DioException catch (e) {
+      if (kDebugMode) {
+        final response = e.response;
+        final servedBy = response?.headers.value('x-ciel-served-by') ?? 'unknown';
+        debugPrint(
+          '[MediaRepository] GET /media/$id failed: '
+          'status=${response?.statusCode ?? 'no response'}, '
+          'servedBy=$servedBy, body=${response?.data ?? e.message}',
+        );
+      }
       throw mapDioException(e);
     }
   }

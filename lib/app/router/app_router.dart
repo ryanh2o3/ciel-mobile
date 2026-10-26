@@ -1,4 +1,5 @@
 import 'package:ciel_mobile/app/router/navigation_extras.dart';
+import 'package:ciel_mobile/domain/entities/user.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/auth/presentation/auth_state.dart';
 import 'package:ciel_mobile/features/auth/presentation/login_screen.dart';
@@ -7,6 +8,8 @@ import 'package:ciel_mobile/features/feed/presentation/feed_screen.dart';
 import 'package:ciel_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:ciel_mobile/features/post/presentation/create_post_screen.dart';
 import 'package:ciel_mobile/features/post/presentation/post_detail_screen.dart';
+import 'package:ciel_mobile/features/profile/presentation/edit_profile_screen.dart';
+import 'package:ciel_mobile/features/profile/presentation/follow_list_screen.dart';
 import 'package:ciel_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:ciel_mobile/features/search/presentation/search_screen.dart';
 import 'package:ciel_mobile/features/settings/presentation/invites_screen.dart';
@@ -123,6 +126,43 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['userId']!;
           return ProfileScreen(userId: id);
         },
+        routes: [
+          GoRoute(
+            path: 'followers',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['userId']!;
+              return FollowListScreen(
+                userId: id,
+                kind: FollowListKind.followers,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'following',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['userId']!;
+              return FollowListScreen(
+                userId: id,
+                kind: FollowListKind.following,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'edit',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! User) {
+                return const Scaffold(
+                  body: Center(child: Text('Missing profile data')),
+                );
+              }
+              return EditProfileScreen(user: extra);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/search',

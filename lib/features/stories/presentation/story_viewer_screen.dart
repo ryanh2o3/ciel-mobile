@@ -5,7 +5,9 @@ import 'package:ciel_mobile/app/router/navigation_extras.dart';
 import 'package:ciel_mobile/core/errors/error_snackbar.dart';
 import 'package:ciel_mobile/domain/entities/media.dart';
 import 'package:ciel_mobile/domain/entities/story.dart';
+import 'package:ciel_mobile/features/auth/presentation/auth_notifier.dart';
 import 'package:ciel_mobile/features/feed/presentation/feed_notifier.dart';
+import 'package:ciel_mobile/features/stories/presentation/widgets/story_viewers_sheet.dart';
 import 'package:ciel_mobile/ui/ciel_avatar.dart';
 import 'package:ciel_mobile/ui/ciel_network_image.dart';
 import 'package:ciel_mobile/ui/tokens.dart';
@@ -141,6 +143,14 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
     _startProgress();
   }
 
+  Future<void> _openViewers(Story story) async {
+    _pause();
+    await showStoryViewersSheet(context, storyId: story.id);
+    if (mounted) {
+      _resume();
+    }
+  }
+
   @override
   void dispose() {
     _progress
@@ -162,6 +172,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
     final media = _media[story.mediaId];
     final url = media?.mediumUrl ?? media?.originalUrl;
     final name = story.userDisplayName ?? story.userHandle ?? 'Story';
+    final me = ref.watch(authNotifierProvider).user;
+    final isOwner = me?.id == story.userId;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -219,9 +231,23 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                       '@${story.userHandle ?? ''}',
                       style: const TextStyle(color: Colors.white70),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => context.pop(),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isOwner)
+                          IconButton(
+                            tooltip: 'Viewers',
+                            icon: const Icon(
+                              Icons.visibility_outlined,
+                              color: Colors.white,
+                            ),
+                            onPressed: () => unawaited(_openViewers(story)),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(
@@ -274,7 +300,25 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
                       ),
                     ),
                   ),
-                  _ReactionRow(storyId: story.id),
+                  if (isOwner)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: CielSpacing.xs),
+                      child: TextButton.icon(
+                        onPressed: () => unawaited(_openViewers(story)),
+                        icon: const Icon(
+                          Icons.visibility_outlined,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                        label: Text(
+                          '${story.viewCount} '
+                          '${story.viewCount == 1 ? 'view' : 'views'}',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    )
+                  else
+                    _ReactionRow(storyId: story.id),
                 ],
               ),
             ),
@@ -332,6 +376,8 @@ class _ReactionRow extends ConsumerStatefulWidget {
 }
 
 class _ReactionRowState extends ConsumerState<_ReactionRow> {
+  String? _lastReacted;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -347,13 +393,25 @@ class _ReactionRowState extends ConsumerState<_ReactionRow> {
                   await ref
                       .read(storyUseCaseProvider)
                       .addReaction(storyId: widget.storyId, emoji: e);
+                  if (context.mounted) {
+                    setState(() => _lastReacted = e);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Reacted $e'),
+                        duration: const Duration(milliseconds: 640),
+                      ),
+                    );
+                  }
                 } on Object catch (err) {
                   if (context.mounted) {
                     showErrorSnackBar(context, err);
                   }
                 }
               },
-              icon: Text(e, style: const TextStyle(fontSize: 22)),
+              icon: Opacity(
+                opacity: _lastReacted == e ? 1 : 0.95,
+                child: Text(e, style: const TextStyle(fontSize: 22)),
+              ),
             ),
         ],
       ),
